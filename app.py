@@ -88,7 +88,7 @@ st.markdown("""
     }
     
     .product-title-text {
-        font-size: 1.4rem;
+        font-size: 1.45rem;
         font-weight: 700;
         color: #0F172A;
         margin-bottom: 4px;
@@ -160,25 +160,14 @@ st.markdown("""
         margin-bottom: 16px;
     }
 
-    /* Streamlit Native Container Styling */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background: #FFFFFF;
-        border-radius: 16px !important;
-        border: 1px solid #E2E8F0 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
-        padding: 18px;
-        margin-top: 10px;
-        margin-bottom: 16px;
-    }
-
     /* Action Buttons styling */
-    .stButton>button {
+    .stButton>button, .stDownloadButton>button {
         border-radius: 10px !important;
         font-weight: 600 !important;
         transition: all 0.15s ease !important;
     }
     
-    .stButton>button:hover {
+    .stButton>button:hover, .stDownloadButton>button:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
     }
@@ -339,34 +328,23 @@ with tab_catalog:
         current_prod = database.get_product_by_code(selected_sku)
         
         if current_prod:
-            # Native Streamlit border container to avoid HTML block fragmentation
+            # Card Container
             with st.container(border=True):
                 col_img, col_info = st.columns([1, 2], gap="large")
                 
                 with col_img:
                     foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR)
                     if foto_resolved and os.path.exists(foto_resolved):
-                        st.image(foto_resolved, use_container_width=True, caption=f"Cod. Art: {current_prod['cod_art']}")
+                        st.image(foto_resolved, use_container_width=True)
+                        st.caption(f"Codice SKU: `{current_prod['cod_art']}`")
                     else:
                         st.markdown("""
-                        <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8; margin-bottom:12px;">
+                        <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8; margin-bottom:8px;">
                             <span style="font-size:2.5rem;">📷</span>
                             <span style="font-size:0.85rem; font-weight:600; margin-top:6px;">Foto non disponibile</span>
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                    scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
-                    if scheda_resolved and os.path.exists(scheda_resolved):
-                        with open(scheda_resolved, "rb") as f:
-                            st.download_button(
-                                label="📥 Scarica Scheda Tecnica (PDF)",
-                                data=f.read(),
-                                file_name=os.path.basename(scheda_resolved),
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                    else:
-                        st.caption("📄 Nessuna scheda tecnica PDF allegata")
+                        st.caption(f"Codice SKU: `{current_prod['cod_art']}`")
                 
                 with col_info:
                     st.markdown(f'<div class="product-title-text">{current_prod["descrizione_articolo"]}</div>', unsafe_allow_html=True)
@@ -376,7 +354,7 @@ with tab_catalog:
                     env_class = "badge-refrigerato" if "refrigerato" in current_prod.get('ambiente_cons', '').lower() else ("badge-congelato" if "congelato" in current_prod.get('ambiente_cons', '').lower() else "badge-asciutto")
                     
                     st.markdown(f"""
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 8px;">
                         <span class="badge-pill badge-category">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
                         <span class="badge-pill {env_class}">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
                         <span class="badge-pill badge-shelflife">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
@@ -396,41 +374,55 @@ with tab_catalog:
                         if current_prod.get('prezzo_indicativo'):
                             st.markdown(f"""
                             <div class="price-tag-box">
-                                <div style="font-size:0.78rem; color:#047857; font-weight:600;">Listino / Contratto:</div>
+                                <div style="font-size:0.75rem; color:#047857; font-weight:600;">Listino / Contratto:</div>
                                 <div class="price-value-text">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</div>
                             </div>
                             """, unsafe_allow_html=True)
                     
                     if current_prod.get('descrizione_commerciale'):
                         st.markdown(f"""
-                        <div style="background:#FFFBEB; border-left:4px solid #F59E0B; padding:10px 14px; border-radius:6px; font-size:0.88rem; color:#451A03; margin-top:8px; margin-bottom:10px;">
+                        <div style="background:#FFFBEB; border-left:4px solid #F59E0B; padding:8px 12px; border-radius:6px; font-size:0.88rem; color:#451A03; margin-top:6px; margin-bottom:8px;">
                             <b>Descrizione Commerciale:</b><br>{current_prod['descrizione_commerciale']}
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Action button to focus product in AI chat
+                    # Action buttons in single clean row
                     st.write("")
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        if st.button("🎯 Aggancia questo prodotto alla Chat AI", type="primary", use_container_width=True):
-                            st.session_state.chat_focused_sku = selected_sku
-                            st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
-                            st.rerun()
-                    with col_btn2:
+                    btn_col1, btn_col2 = st.columns([1, 1])
+                    with btn_col1:
                         if st.session_state.chat_focused_sku == selected_sku:
-                            if st.button("❌ Rimuovi focus da questo prodotto", use_container_width=True):
+                            if st.button("❌ Rimuovi focus AI", use_container_width=True):
                                 st.session_state.chat_focused_sku = None
-                                st.toast("Focus rimosso: la Chat AI ora risponde su tutto il catalogo generale.")
+                                st.toast("Focus rimosso! Passato al catalogo generale.")
                                 st.rerun()
-                
-                # Scheda Tecnica Preview Box inside container with clean margin
-                scheda_text = current_prod.get('scheda_text', '').strip()
-                if scheda_text:
-                    st.write("")
-                    with st.expander("📄 Consulta il Testo Estratto della Scheda Tecnica Ufficiale (HACCP, Ingredienti, Allergeni)"):
-                        st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=240, disabled=True)
-                elif current_prod.get('scheda_path'):
-                    st.info("La scheda tecnica PDF è presente ma non contiene testo scansionabile.")
+                        else:
+                            if st.button("🎯 Aggancia alla Chat AI", type="primary", use_container_width=True):
+                                st.session_state.chat_focused_sku = selected_sku
+                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
+                                st.rerun()
+                                
+                    with btn_col2:
+                        scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
+                        if scheda_resolved and os.path.exists(scheda_resolved):
+                            with open(scheda_resolved, "rb") as f:
+                                st.download_button(
+                                    label="📥 Scarica Scheda PDF",
+                                    data=f.read(),
+                                    file_name=os.path.basename(scheda_resolved),
+                                    mime="application/pdf",
+                                    use_container_width=True
+                                )
+                        else:
+                            st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
+
+            # Scheda Tecnica Full-Width Section below product card
+            scheda_text = current_prod.get('scheda_text', '').strip()
+            if scheda_text:
+                st.write("")
+                with st.expander("📋 Consulta il Testo Ufficiale della Scheda Tecnica (HACCP, Ingredienti, Allergeni)", expanded=False):
+                    st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=220, disabled=True, label_visibility="collapsed")
+            elif current_prod.get('scheda_path'):
+                st.info("ℹ️ La scheda tecnica PDF è presente per il download ma non contiene testo scansionabile.")
 
 with tab_chat:
     # Get currently focused product for chat
