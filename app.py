@@ -3,6 +3,7 @@ import os
 import base64
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Optional
 import database
 import ai_assistant
 import config
@@ -11,49 +12,245 @@ import config
 load_dotenv()
 
 st.set_page_config(
-    page_title="Catalogo Intelligente Ho.Re.Ca",
-    page_icon="🍽️",
+    page_title="Catalogo Intelligente Ho.Re.Ca | AI Assistant",
+    page_icon="🍴",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern HoReCa theme
+# --- MODERN PREMIUM HORECA CSS THEME ---
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
 <style>
-    .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1E293B;
-        margin-bottom: 0.2rem;
+    /* Global Typography */
+    html, body, [class*="css"], .stMarkdown, p, span, div {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
-    .sub-header {
-        font-size: 1.05rem;
-        color: #64748B;
-        margin-bottom: 1.5rem;
+    
+    h1, h2, h3, .main-title, .hero-title {
+        font-family: 'Outfit', sans-serif !important;
+        letter-spacing: -0.02em;
     }
-    .product-card {
-        background-color: #F8FAFC;
-        border: 1px solid #CBD5E1;
-        border-radius: 12px;
+
+    /* Main Container background */
+    .stApp {
+        background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+    }
+
+    /* Hero Banner */
+    .hero-banner {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+        border-radius: 18px;
+        padding: 28px 32px;
+        color: white;
+        margin-bottom: 24px;
+        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .hero-banner::after {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 380px;
+        height: 380px;
+        background: radial-gradient(circle, rgba(217, 119, 6, 0.25) 0%, rgba(15, 23, 42, 0) 70%);
+        pointer-events: none;
+    }
+    
+    .hero-title {
+        font-size: 2.1rem;
+        font-weight: 800;
+        margin: 0;
+        background: linear-gradient(90deg, #FFFFFF 0%, #FDE68A 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .hero-subtitle {
+        font-size: 1rem;
+        color: #94A3B8;
+        margin-top: 6px;
+        margin-bottom: 16px;
+    }
+    
+    .hero-stats-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    
+    .hero-pill {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #E2E8F0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    /* Product Showcase Card */
+    .premium-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
         padding: 24px;
-        margin-top: 15px;
+        margin-top: 12px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .badge {
+    
+    .product-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 4px;
+    }
+    
+    .sku-tag {
         display: inline-block;
-        padding: 4px 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        background: #F1F5F9;
+        color: #475569;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid #E2E8F0;
+        margin-bottom: 12px;
+    }
+    
+    .price-box {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        border: 1px solid #A7F3D0;
+        border-radius: 10px;
+        padding: 10px 16px;
+        display: inline-block;
+        margin-top: 8px;
+        margin-bottom: 12px;
+    }
+    
+    .price-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #065F46;
+    }
+    
+    /* Badges */
+    .badge-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+        margin-bottom: 14px;
+    }
+    
+    .badge-pill {
+        padding: 5px 12px;
         border-radius: 20px;
         font-size: 0.82rem;
         font-weight: 600;
-        margin-right: 6px;
-        margin-bottom: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
     }
-    .badge-blue { background-color: #E0F2FE; color: #0369A1; }
-    .badge-green { background-color: #DCFCE7; color: #15803D; }
-    .badge-amber { background-color: #FEF3C7; color: #B45309; }
-    .badge-purple { background-color: #F3E8FF; color: #7E22CE; }
-    .badge-cyan { background-color: #CFFAFE; color: #0E7490; }
+    
+    .badge-category { background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; }
+    .badge-refrigerato { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+    .badge-congelato { background: #F0FDF4; color: #0284C7; border: 1px solid #BAE6FD; }
+    .badge-asciutto { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+    .badge-shelflife { background: #FAF5FF; color: #7E22CE; border: 1px solid #F3E8FF; }
+    .badge-packaging { background: #F8FAFC; color: #334155; border: 1px solid #CBD5E1; }
+    
+    /* Image Frame */
+    .img-frame {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        background: #FFFFFF;
+    }
+
+    /* Focus Alert Banner */
+    .focus-alert-active {
+        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+        border: 1px solid #93C5FD;
+        border-radius: 12px;
+        padding: 14px 18px;
+        color: #1E40AF;
+        margin-bottom: 16px;
+    }
+    
+    .focus-alert-general {
+        background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+        border: 1px solid #86EFAC;
+        border-radius: 12px;
+        padding: 14px 18px;
+        color: #166534;
+        margin-bottom: 16px;
+    }
+
+    /* Action Buttons styling */
+    .stButton>button {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stButton>button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Quick Prompt Chips */
+    .quick-chip-btn button {
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        color: #1E293B !important;
+        border-radius: 20px !important;
+        font-size: 0.86rem !important;
+        padding: 6px 12px !important;
+    }
+    
+    .quick-chip-btn button:hover {
+        background: #F8FAFC !important;
+        border-color: #3B82F6 !important;
+        color: #1D4ED8 !important;
+    }
+
+    /* Tabs header */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: #E2E8F0;
+        padding: 4px;
+        border-radius: 12px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        font-weight: 600;
+        color: #475569;
+        padding: 8px 18px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,42 +268,57 @@ def resolve_file(stored_path: str, filename: str, fallback_dir: Path) -> Optiona
 if not config.DB_PATH.exists():
     database.init_db()
 
-# --- SIDEBAR ---
+# --- SIDEBAR OVERHAUL ---
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/restaurant-menu.png", width=64)
-    st.title("Catalogo Intelligente")
-    st.caption("AI Assistant & Schede Tecniche")
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <img src="https://img.icons8.com/fluency/96/restaurant-menu.png" width="48" style="border-radius: 10px;">
+        <div>
+            <div style="font-weight: 800; font-size: 1.15rem; color: #0F172A; line-height: 1.1;">Catalogo HoReCa</div>
+            <div style="font-size: 0.8rem; color: #64748B;">Italian Food Distribution</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.divider()
     
-    # API Key Configuration
-    st.subheader("🔑 Configurazione Gemini AI")
+    # API Key Configuration Card
+    st.markdown("##### ⚡ Motore Intelligenza Artificiale")
     env_api_key = os.getenv("GEMINI_API_KEY", "")
     user_api_key = st.text_input(
         "Google Gemini API Key",
         value=env_api_key,
         type="password",
-        help="Inserisci la tua Google Gemini API Key per abilitare l'assistente AI e la ricerca web."
+        help="La tua chiave API è salvata e protetta localmente."
     )
     
     active_api_key = user_api_key.strip() or env_api_key
     if active_api_key:
-        st.success("API Key attiva", icon="✅")
+        st.markdown("""
+        <div style="background:#ECFDF5; border:1px solid #A7F3D0; padding:6px 12px; border-radius:8px; font-size:0.8rem; color:#065F46; font-weight:600; margin-bottom:10px;">
+            🟢 API Key Connessa & Attiva
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.warning("Inserisci una Gemini API Key per usare la chat", icon="⚠️")
+        st.markdown("""
+        <div style="background:#FEF2F2; border:1px solid #FECACA; padding:6px 12px; border-radius:8px; font-size:0.8rem; color:#991B1B; font-weight:600; margin-bottom:10px;">
+            ⚠️ Inserisci API Key per usare l'AI
+        </div>
+        """, unsafe_allow_html=True)
         
     model_choice = st.selectbox(
-        "Modello AI",
+        "Modello LLM",
         options=["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-pro-latest"],
-        index=0
+        index=0,
+        help="Gemini 3.6 Flash garantisce massima velocità e stabilità."
     )
     
-    enable_web_search = st.toggle("🌐 Ricerca Web Google in tempo reale", value=True, help="Permette a Gemini di effettuare ricerche online per ricette, food cost e tendenze HoReCa.")
+    enable_web_search = st.toggle("🌐 Ricerca Web Google in tempo reale", value=True, help="Ricerca abbinamenti, ricette gourmet e tendenze in tempo reale.")
     
     st.divider()
     
     # Catalog Filters
-    st.subheader("🏷️ Filtri Catalogo")
+    st.markdown("##### 🏷️ Filtri Catalogo")
     categories = ["Tutte"] + database.get_categories()
     selected_category = st.selectbox("Categoria Merceologica", categories, index=0)
     
@@ -115,24 +327,43 @@ with st.sidebar:
     
     st.divider()
     
-    # Stats & Maintenance
+    # Stats Card
     stats = database.get_catalog_stats()
-    st.subheader("📊 Dati Catalogo")
-    st.write(f"• **Articoli totali:** {stats['total_products']}")
-    st.write(f"• **Foto collegate:** {stats['with_foto']}")
-    st.write(f"• **Schede PDF collegate:** {stats['with_scheda']}")
-    st.write(f"• **Schede con testo estratto:** {stats['with_text']}")
+    st.markdown(f"""
+    <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:12px 14px; border-radius:10px; font-size:0.82rem; color:#475569;">
+        <div style="font-weight:700; color:#1E293B; margin-bottom:6px;">📊 Stato Catalogo</div>
+        <div>📦 <b>{stats['total_products']:,}</b> Prodotti indicizzati</div>
+        <div>📸 <b>{stats['with_foto']:,}</b> Foto collegate</div>
+        <div>📄 <b>{stats['with_scheda']:,}</b> Schede PDF archiviate</div>
+        <div>🧠 <b>{stats['with_text']:,}</b> Schede con testo AI</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if st.button("🔄 Re-indicizza Catalogo e PDF"):
+    st.write("")
+    if st.button("🔄 Sincronizza & Re-indicizza", use_container_width=True):
         with st.spinner("Indicizzazione in corso..."):
             import indexer
             indexer.run_indexing()
-            st.success("Indicizzazione completata!")
+            st.success("Catalogo sincronizzato!")
             st.rerun()
 
-# --- MAIN PAGE HEADER ---
-st.markdown('<div class="main-header">🍽️ Catalogo Intelligente & Assistente Ho.Re.Ca</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Risposte tecniche certificate da Schede Tecniche Ufficiali e Consulenza Culinaria con Google Search Grounding</div>', unsafe_allow_html=True)
+# --- HERO HEADER BANNER ---
+st.markdown(f"""
+<div class="hero-banner">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+            <div class="hero-title">🍴 Catalogo Intelligente & Assistente Ho.Re.Ca</div>
+            <div class="hero-subtitle">Consulenza Tecnica Certificata da Schede Ufficiali • Ricette Gourmet & Tendenze di Mercato con AI</div>
+        </div>
+    </div>
+    <div class="hero-stats-row">
+        <div class="hero-pill">📦 {stats['total_products']:,} Articoli a Catalogo</div>
+        <div class="hero-pill">📸 {stats['with_foto']:,} Foto HD</div>
+        <div class="hero-pill">📄 {stats['with_scheda']:,} Schede Tecniche PDF</div>
+        <div class="hero-pill">⚡ Modello: {model_choice}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Session state initialization
 if "chat_focused_sku" not in st.session_state:
@@ -140,12 +371,12 @@ if "chat_focused_sku" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Top search bar
+# Top search bar styled
 col_search1, col_search2 = st.columns([3, 1])
 with col_search1:
-    search_query = st.text_input("🔍 Cerca per Codice Articolo (SKU), Nome o Parola chiave (es. 'farina', 'burrata', 'wagyu', 'pomodoro', 'A001012')", "")
+    search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
 with col_search2:
-    limit_results = st.selectbox("Risultati max", [30, 60, 150], index=0)
+    limit_results = st.selectbox("Mostra risultati", [30, 60, 150], index=0)
 
 # Fetch products based on filters and search
 products = database.search_products(
@@ -156,40 +387,51 @@ products = database.search_products(
 )
 
 # Tabs
-tab_catalog, tab_chat = st.tabs(["📦 Scheda Prodotto & Catalogo", "🤖 Assistente AI Chef & Consulente Tecnico"])
+tab_catalog, tab_chat = st.tabs(["📦 Scheda Prodotto & Catalogo", "🤖 Studio Consulenza & Chat AI"])
 
 with tab_catalog:
     if not products:
-        st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a reimpostare i filtri di categoria.")
+        st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a selezionare 'Tutte' nei filtri di categoria.")
     else:
-        st.success(f"🎯 Trovati **{len(products)}** articoli pertinenti:")
+        st.markdown(f"""
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="color:#0F172A; font-weight:700; font-size:1.05rem;">🎯 Trovati <b>{len(products)}</b> articoli pertinenti:</div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Product selector
         product_options = {
-            f"{p['cod_art']} - {p['descrizione_articolo']} [{p.get('gruppo_art', '')}]": p['cod_art']
+            f"{p['cod_art']} — {p['descrizione_articolo']} [{p.get('gruppo_art', '')}]": p['cod_art']
             for p in products
         }
         
         selected_label = st.selectbox(
-            "Seleziona il prodotto da visualizzare nel dettaglio:",
+            "Seleziona il prodotto per aprire la scheda tecnica dettagliata:",
             options=list(product_options.keys()),
-            index=0
+            index=0,
+            label_visibility="collapsed"
         )
         
         selected_sku = product_options[selected_label]
         current_prod = database.get_product_by_code(selected_sku)
         
         if current_prod:
-            st.markdown('<div class="product-card">', unsafe_allow_html=True)
-            col_img, col_info = st.columns([1, 2])
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            col_img, col_info = st.columns([1, 2], gap="large")
             
             with col_img:
                 foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR)
                 if foto_resolved and os.path.exists(foto_resolved):
-                    st.image(foto_resolved, use_container_width=True, caption=f"SKU: {current_prod['cod_art']}")
+                    st.image(foto_resolved, use_container_width=True, caption=f"Cod. Art: {current_prod['cod_art']}")
                 else:
-                    st.info("🖼️ Foto articolo non presente", icon="ℹ️")
+                    st.markdown("""
+                    <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8;">
+                        <span style="font-size:2.5rem;">📷</span>
+                        <span style="font-size:0.85rem; font-weight:600; margin-top:6px;">Foto non disponibile</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
+                st.write("")
                 scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
                 if scheda_resolved and os.path.exists(scheda_resolved):
                     with open(scheda_resolved, "rb") as f:
@@ -204,41 +446,53 @@ with tab_catalog:
                     st.caption("📄 Nessuna scheda tecnica PDF allegata")
             
             with col_info:
-                st.subheader(f"{current_prod['descrizione_articolo']}")
-                st.markdown(f"**Codice Articolo (SKU):** `{current_prod['cod_art']}`")
+                st.markdown(f'<div class="product-title">{current_prod["descrizione_articolo"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<span class="sku-tag">SKU: {current_prod["cod_art"]}</span>', unsafe_allow_html=True)
                 
-                # Badges
+                # Dynamic Environment Badge Color
+                env_class = "badge-refrigerato" if "refrigerato" in current_prod.get('ambiente_cons', '').lower() else ("badge-congelato" if "congelato" in current_prod.get('ambiente_cons', '').lower() else "badge-asciutto")
+                
                 badge_html = f"""
-                <div>
-                    <span class="badge badge-blue">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
-                    <span class="badge badge-green">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
-                    <span class="badge badge-amber">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
-                    <span class="badge badge-purple">⚖️ {current_prod.get('tipo_peso', 'N/D')}</span>
-                    <span class="badge badge-cyan">📦 {current_prod.get('unita_imballi', 'N/D')}</span>
+                <div class="badge-wrap">
+                    <span class="badge-pill badge-category">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
+                    <span class="badge-pill {env_class}">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
+                    <span class="badge-pill badge-shelflife">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
+                    <span class="badge-pill badge-packaging">⚖️ {current_prod.get('tipo_peso', 'N/D')}</span>
+                    <span class="badge-pill badge-packaging">📦 {current_prod.get('unita_imballi', 'N/D')}</span>
                 </div>
                 """
                 st.markdown(badge_html, unsafe_allow_html=True)
                 
-                st.write("")
+                # Key details grid
                 col_d1, col_d2 = st.columns(2)
                 with col_d1:
-                    st.write(f"• **Unità di Misura:** {current_prod.get('um', 'Kg')}")
-                    st.write(f"• **Minimo d'Ordine:** {current_prod.get('minimo_ordine', 'N/D')}")
-                    st.write(f"• **Tempo Consegna:** {current_prod.get('tempo_cons_gg', 'N/D')} gg")
+                    st.markdown(f"• **Unità di Misura:** `{current_prod.get('um', 'Kg')}`")
+                    st.markdown(f"• **Minimo d'Ordine:** `{current_prod.get('minimo_ordine', 'N/D')}`")
+                    st.markdown(f"• **Tempo Consegna:** `{current_prod.get('tempo_cons_gg', 'N/D')} giorni`")
                 with col_d2:
+                    st.markdown(f"• **Stato Articolo:** `{'Attivo a Listino' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}`")
                     if current_prod.get('prezzo_indicativo'):
-                        st.write(f"• **Listino / Contratto:** € {current_prod.get('prezzo_indicativo')}")
-                    st.write(f"• **Stato Articolo:** {'Attivo' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}")
+                        st.markdown(f"""
+                        <div class="price-box">
+                            <span style="font-size:0.8rem; color:#047857; font-weight:600;">Listino / Contratto:</span><br>
+                            <span class="price-value">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 if current_prod.get('descrizione_commerciale'):
-                    st.info(f"**Descrizione Commerciale:**\n{current_prod['descrizione_commerciale']}")
+                    st.markdown(f"""
+                    <div style="background:#F8FAFC; border-left:4px solid #F59E0B; padding:10px 14px; border-radius:6px; font-size:0.9rem; color:#334155; margin-top:8px; margin-bottom:12px;">
+                        <b>Descrizione Commerciale:</b><br>{current_prod['descrizione_commerciale']}
+                    </div>
+                    """, unsafe_allow_html=True)
                 
                 # Action button to focus product in AI chat
+                st.write("")
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("🎯 Aggancia questo prodotto alla Chat AI", type="primary", use_container_width=True):
                         st.session_state.chat_focused_sku = selected_sku
-                        st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI!")
+                        st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
                         st.rerun()
                 with col_btn2:
                     if st.session_state.chat_focused_sku == selected_sku:
@@ -253,7 +507,7 @@ with tab_catalog:
             scheda_text = current_prod.get('scheda_text', '').strip()
             if scheda_text:
                 with st.expander("📄 Consulta il Testo Estratto della Scheda Tecnica Ufficiale (HACCP, Ingredienti, Allergeni)"):
-                    st.text_area("Testo Scheda Tecnica", value=scheda_text, height=250, disabled=True)
+                    st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=260, disabled=True)
             elif current_prod.get('scheda_path'):
                 st.info("La scheda tecnica PDF è presente ma non contiene testo scansionabile.")
 
@@ -265,20 +519,30 @@ with tab_chat:
     col_chat_head, col_chat_reset = st.columns([3, 1])
     with col_chat_head:
         if focused_prod:
-            st.info(f"🎯 **Prodotto attualmente agganciato:** `{focused_prod['cod_art']}` — **{focused_prod['descrizione_articolo']}**\n\n*(L'AI risponderà basandosi sulla scheda tecnica e sui dati di questo specifico articolo)*")
+            st.markdown(f"""
+            <div class="focus-alert-active">
+                <div style="font-weight:700; font-size:1.05rem;">🎯 Prodotto Attualmente Agganciato:</div>
+                <div style="font-size:0.95rem; margin-top:2px;"><code>{focused_prod['cod_art']}</code> — <b>{focused_prod['descrizione_articolo']}</b></div>
+                <div style="font-size:0.8rem; color:#3B82F6; margin-top:4px;">L'assistente utilizzerà i dati esatti della scheda tecnica ufficiale e cercherà abbinamenti specifici.</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.success("🌐 **Modalità Generale Attiva:** *Catalogo Generale Ho.Re.Ca*\n\n*(L'AI risponderà su qualsiasi prodotto del catalogo o fornirà consigli culinari generali)*")
+            st.markdown("""
+            <div class="focus-alert-general">
+                <div style="font-weight:700; font-size:1.05rem;">🌐 Modalità Generale Attiva (Tutto il Catalogo Ho.Re.Ca)</div>
+                <div style="font-size:0.85rem; color:#15803D; margin-top:2px;">Puoi chiedere consigli culinari, suggerimenti di menù o informazioni generali su qualsiasi articolo.</div>
+            </div>
+            """, unsafe_allow_html=True)
             
     with col_chat_reset:
         if focused_prod:
-            if st.button("🔓 Sgancia Prodotto (Modalità Generale)", type="secondary", use_container_width=True):
+            st.write("")
+            if st.button("🔓 Sgancia Prodotto (Modalità Generale)", use_container_width=True):
                 st.session_state.chat_focused_sku = None
                 st.toast("Focus rimosso! Passato alla modalità Catalogo Generale.")
                 st.rerun()
             
-    st.divider()
-    
-    # Quick Prompt suggestions
+    # Quick Prompt suggestions with styled chips
     st.markdown("##### ⚡ Domande Rapide con 1 Click:")
     q_col1, q_col2, q_col3, q_col4 = st.columns(4)
     quick_prompt = None
@@ -307,16 +571,15 @@ with tab_chat:
             else:
                 quick_prompt = "Cerca online i trend gastronomici più forti di quest'anno per ristoranti e pizzerie e quali ingredienti stanno avendo maggior successo."
 
-    st.divider()
+    st.write("")
 
     # Direct Input Form in the Main Tab Area
-    st.markdown("##### 💬 Fai una domanda all'Assistente:")
     with st.form(key="chat_direct_form", clear_on_submit=True):
         col_in1, col_in2 = st.columns([5, 1])
         with col_in1:
             form_text = st.text_input(
                 "Scrivi qui la tua domanda:",
-                placeholder="Scrivi qui la tua domanda per lo Chef & Consulente Tecnico...",
+                placeholder="Chiedi qualsiasi cosa all'assistente AI (es. 'Come gestire la cottura?', 'Che vino abbinare?')...",
                 label_visibility="collapsed"
             )
         with col_in2:
@@ -329,15 +592,19 @@ with tab_chat:
 
     # Display chat history
     if st.session_state.messages:
-        st.markdown("##### 📜 Conversazione:")
+        st.markdown("##### 💬 Conversazione:")
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"], avatar="🧑‍🍳" if msg["role"] == "user" else "🤖"):
                 st.markdown(msg["content"])
                 if msg.get("sources"):
-                    st.markdown("**🌐 Fonti Web Consultate:**")
+                    st.markdown("""
+                    <div style="background:#F1F5F9; border-left:4px solid #3B82F6; padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-top:8px;">
+                        <b>🌐 Fonti e Approfondimenti Web Consultati:</b>
+                    </div>
+                    """, unsafe_allow_html=True)
                     for s in msg["sources"]:
                         if s.get("url"):
-                            st.markdown(f"- [{s['title']}]({s['url']})")
+                            st.markdown(f"- 🔗 [{s['title']}]({s['url']})")
 
     if prompt_to_run:
         if not active_api_key:
@@ -349,7 +616,7 @@ with tab_chat:
                 st.markdown(prompt_to_run)
                 
             with st.chat_message("assistant", avatar="🤖"):
-                with st.spinner("L'assistente sta analizzando la scheda tecnica e preparando la risposta..."):
+                with st.spinner("L'assistente sta analizzando la scheda tecnica e preparando la consulenza culinaria..."):
                     response_data = ai_assistant.generate_ai_response(
                         messages=st.session_state.messages,
                         current_product=focused_prod,
@@ -360,10 +627,14 @@ with tab_chat:
                     
                     st.markdown(response_data["text"])
                     if response_data.get("sources"):
-                        st.markdown("**🌐 Fonti Web Consultate:**")
+                        st.markdown("""
+                        <div style="background:#F1F5F9; border-left:4px solid #3B82F6; padding:8px 12px; border-radius:6px; font-size:0.85rem; margin-top:8px;">
+                            <b>🌐 Fonti e Approfondimenti Web Consultati:</b>
+                        </div>
+                        """, unsafe_allow_html=True)
                         for s in response_data["sources"]:
                             if s.get("url"):
-                                st.markdown(f"- [{s['title']}]({s['url']})")
+                                st.markdown(f"- 🔗 [{s['title']}]({s['url']})")
                                 
                     st.session_state.messages.append({
                         "role": "assistant",
@@ -372,6 +643,7 @@ with tab_chat:
                     })
 
     if st.session_state.messages:
-        if st.button("🗑️ Pulisci cronologia chat"):
+        st.write("")
+        if st.button("🗑️ Pulisci cronologia conversazione"):
             st.session_state.messages = []
             st.rerun()
