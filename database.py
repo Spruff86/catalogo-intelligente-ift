@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import re
 from typing import List, Dict, Any, Optional
 import config
 
@@ -68,6 +69,56 @@ def get_storage_envs() -> List[str]:
     conn.close()
     return envs
 
+def normalize_italian_term(word: str) -> List[str]:
+    """Expands Italian terms with common abbreviations, singular/plural stems with wildcard matching"""
+    w = word.lower().strip()
+    if not w or len(w) < 2:
+        return []
+        
+    # HoReCa specific domain synonyms & abbreviations
+    synonyms_map = {
+        "prosciutto": ["%prosc%", "%prosciutt%"],
+        "prosciutti": ["%prosc%", "%prosciutt%"],
+        "prosc": ["%prosc%", "%prosciutt%"],
+        "cotto": ["%cott%"],
+        "cotti": ["%cott%"],
+        "cotta": ["%cott%"],
+        "crudo": ["%crud%"],
+        "crudi": ["%crud%"],
+        "cruda": ["%crud%"],
+        "mozzarella": ["%mozz%"],
+        "mozzarelle": ["%mozz%"],
+        "formaggio": ["%formagg%", "%form%"],
+        "formaggi": ["%formagg%", "%form%"],
+        "farina": ["%farin%"],
+        "farine": ["%farin%"],
+        "pomodoro": ["%pomodor%"],
+        "pomodori": ["%pomodor%"],
+        "pelato": ["%pelat%"],
+        "pelati": ["%pelat%"],
+        "salame": ["%salam%"],
+        "salami": ["%salam%"],
+        "carne": ["%carn%"],
+        "carni": ["%carn%"],
+        "manzo": ["%manz%", "%bovin%"],
+        "manzi": ["%manz%", "%bovin%"],
+        "olio": ["%oli%"],
+        "aceto": ["%acet%"],
+        "riso": ["%ris%"],
+        "pasta": ["%past%"],
+        "pizza": ["%pizz%"],
+        "pizze": ["%pizz%"]
+    }
+    
+    if w in synonyms_map:
+        return synonyms_map[w]
+        
+    # Common Italian plural to stem rules
+    if len(w) > 4 and w.endswith(('i', 'e', 'o', 'a')):
+        return [f"%{w[:-1]}%", f"%{w}%"]
+            
+    return [f"%{w}%"]
+
 def search_products(query: str = "", category: str = "", storage_env: str = "", limit: Optional[int] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
@@ -84,7 +135,6 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         base_params.append(storage_env)
         
     clean_query = query.strip()
-    
     limit_clause = f" LIMIT {int(limit)}" if (limit and limit > 0) else ""
     
     if not clean_query:
@@ -95,9 +145,41 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         conn.close()
         return rows
         
-    terms = [t.strip() for t in clean_query.split() if t.strip()]
+    # Check for special dietary / allergen filters in query
+    clean_lower = clean_query.lower()
+    is_gluten_free_query = any(p in clean_lower for p in ["senza glutine", "gluten free", "per celiaci", "no glutine", "senza glut."])
+    is_lactose_free_query = any(p in clean_lower for p in ["senza lattosio", "delattosato", "lactose free", "no lattosio", "delattosata"])
     
-    # Relevance scoring components
+    # Extract words
+    words = re.findall(r'\b[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]{2,}\b', clean_query)
+    
+    # Filter out conversational filler and stopwords
+    stop_words = {
+        "quali", "quale", "cosa", "come", "dove", "sono", "abbiamo", "catalogo", 
+        "indicati", "indicate", "indicato", "indicata", "consigliami", "trovami",
+        "vorrei", "sapere", "dimmi", "elenco", "tutti", "tutte", "degli", "delle",
+        "della", "dello", "agli", "alle", "alla", "allo", "nella", "nello", "nelle",
+        "negli", "questo", "questa", "questi", "queste", "nostro", "nostra", "nostri",
+        "nostre", "vostro", "vostra", "vostri", "vostre", "senza", "avessimo", "avete",
+        "avere", "presenti", "presente", "trovare", "cercare", "cerco", "volevo", "nel",
+        "sul", "sulla", "sulle", "sugli", "sui", "per", "con", "tra", "fra"
+    }
+    
+    # Filter search words
+    search_words = []
+    for w in words:
+        wl = w.lower()
+        if is_gluten_free_query and wl in ["glutine", "gluten", "celiaci"]:
+            continue
+        if is_lactose_free_query and wl in ["lattosio", "lactose", "delattosato", "delattosati"]:
+            continue
+        if wl not in stop_words:
+            search_words.append(w)
+            
+    if not search_words:
+        # If all were filtered out, keep nouns
+        search_words = [w for w in words if w.lower() not in {"quali", "quale", "abbiamo", "catalogo", "avessimo", "nel"}]
+        
     score_parts = []
     score_params = []
     
@@ -113,35 +195,37 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
     score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 300 ELSE 0 END")
     score_params.append(f"%{clean_query}%")
     
-    # Individual term matching in description
-    for t in terms:
-        score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 120 ELSE 0 END")
-        score_params.append(f"%{t}%")
-        
-    # Category match
-    score_parts.append("CASE WHEN UPPER(gruppo_art) LIKE UPPER(?) THEN 150 ELSE 0 END")
-    score_params.append(f"%{clean_query}%")
-    
-    # Commercial description match
-    score_parts.append("CASE WHEN UPPER(descrizione_commerciale) LIKE UPPER(?) THEN 60 ELSE 0 END")
-    score_params.append(f"%{clean_query}%")
-    
-    # Scheda tecnica text match
-    score_parts.append("CASE WHEN UPPER(scheda_text) LIKE UPPER(?) THEN 10 ELSE 0 END")
-    score_params.append(f"%{clean_query}%")
-    
-    score_sql = " + ".join(score_parts)
-    
-    # Filter conditions: all terms must match somewhere (AND logic)
     term_conditions = []
     term_params = []
-    for t in terms:
-        pat = f"%{t}%"
-        term_conditions.append("(cod_art LIKE ? OR descrizione_articolo LIKE ? OR gruppo_art LIKE ? OR descrizione_commerciale LIKE ? OR scheda_text LIKE ?)")
-        term_params.extend([pat, pat, pat, pat, pat])
+    
+    for word in search_words:
+        variants = normalize_italian_term(word)
+        if not variants:
+            continue
+            
+        variant_subconditions = []
+        for v in variants:
+            variant_subconditions.append("(cod_art LIKE ? OR descrizione_articolo LIKE ? OR gruppo_art LIKE ? OR descrizione_commerciale LIKE ? OR scheda_text LIKE ?)")
+            term_params.extend([v, v, v, v, v])
+            
+            score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 120 ELSE 0 END")
+            score_params.append(v)
+            
+        if variant_subconditions:
+            term_conditions.append(f"({' OR '.join(variant_subconditions)})")
+            
+    # Apply dietary / allergen constraints if requested
+    if is_gluten_free_query:
+        term_conditions.append("(scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%' OR scheda_text LIKE '%assenza di glutine%' OR descrizione_articolo LIKE '%S/GLUT%' OR descrizione_articolo LIKE '%SENZA GLUT%')")
+        score_parts.append("CASE WHEN (scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%') THEN 250 ELSE 0 END")
         
+    if is_lactose_free_query:
+        term_conditions.append("(scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%' OR scheda_text LIKE '%assenza di lattosio%' OR descrizione_articolo LIKE '%S/LATT%' OR descrizione_articolo LIKE '%SENZA LATT%')")
+        score_parts.append("CASE WHEN (scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%') THEN 250 ELSE 0 END")
+        
+    score_sql = " + ".join(score_parts) if score_parts else "0"
     all_conditions = base_conditions + term_conditions
-    where_clause = " WHERE " + " AND ".join(all_conditions)
+    where_clause = " WHERE " + " AND ".join(all_conditions) if all_conditions else ""
     
     all_params = score_params + base_params + term_params
     sql = f"""

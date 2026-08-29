@@ -1,6 +1,5 @@
 import os
 import time
-import re
 from typing import Dict, Any, Optional, List
 import config
 import database
@@ -17,54 +16,9 @@ def get_gemini_client(api_key: Optional[str] = None):
     except Exception as e:
         return None, f"Errore nell'inizializzazione del client Gemini: {e}"
 
-def extract_search_terms(user_text: str) -> List[str]:
-    """Extract relevant semantic terms from user query for catalog database search"""
-    # Remove common Italian stop words / conversational filler
-    stop_words = {
-        "quali", "quale", "cosa", "come", "dove", "sono", "abbiamo", "catalogo", 
-        "indicati", "indicate", "indicato", "indicata", "consigliami", "trovami",
-        "vorrei", "sapere", "dimmi", "elenco", "tutti", "tutte", "degli", "delle",
-        "della", "dello", "delle", "agli", "alle", "alla", "allo", "nella", "nello",
-        "nelle", "negli", "questo", "questa", "questi", "queste", "molto", "poco",
-        "nostro", "nostra", "nostri", "nostre", "vostro", "vostra", "vostri", "vostre"
-    }
-    words = re.findall(r'\b[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]{3,}\b', user_text.lower())
-    filtered = [w for w in words if w not in stop_words]
-    return filtered
-
 def retrieve_relevant_catalog_items(user_query: str, limit: int = 15) -> List[Dict[str, Any]]:
-    """Retrieves the most relevant products and technical sheets for general questions"""
-    terms = extract_search_terms(user_query)
-    if not terms:
-        # Fallback to direct text search
-        return database.search_products(query=user_query, limit=limit)
-    
-    # Try searching with combined terms or key terms
-    results = []
-    seen_skus = set()
-    
-    # 1. Full multi-word search
-    joined_query = " ".join(terms[:3])
-    direct_res = database.search_products(query=joined_query, limit=limit)
-    for p in direct_res:
-        if p['cod_art'] not in seen_skus:
-            seen_skus.add(p['cod_art'])
-            results.append(p)
-            
-    # 2. If few results, search individual salient terms
-    if len(results) < limit:
-        for t in terms:
-            term_res = database.search_products(query=t, limit=8)
-            for p in term_res:
-                if p['cod_art'] not in seen_skus:
-                    seen_skus.add(p['cod_art'])
-                    results.append(p)
-                if len(results) >= limit:
-                    break
-            if len(results) >= limit:
-                break
-                
-    return results[:limit]
+    """Retrieves the most relevant products and technical sheets for general questions using smart database search"""
+    return database.search_products(query=user_query, limit=limit)
 
 def generate_ai_response(
     messages: List[Dict[str, str]],
@@ -124,11 +78,11 @@ TESTO ESTRATTO DALLA SCHEDA TECNICA UFFICIALE (PDF):
             product_context += "\n(Nota: Nessun testo di scheda tecnica PDF associato per questo articolo)\n"
     else:
         # General Catalog Query Mode (RAG Dynamic Retrieval)
-        retrieved_items = retrieve_relevant_catalog_items(latest_user_message, limit=12)
+        retrieved_items = retrieve_relevant_catalog_items(latest_user_message, limit=15)
         if retrieved_items:
             product_context = f"""
 ESTRATTO PRODOTTI E SCHEDE TECNICHE DAL CATALOGO AZIENDALE (RISULTATI RICERCA AUTOMATICA):
-Sono stati trovati {len(retrieved_items)} articoli pertinenti alla domanda dell'utente. Utilizza questi dati ufficiali per rispondere citando SKU, nomi e specifiche tecniche:
+Sono stati trovati {len(retrieved_items)} articoli pertinenti alla domanda dell'utente. Utilizza questi dati ufficiali per rispondere citando SKU, descrizioni e specifiche tecniche:
 """
             for idx, item in enumerate(retrieved_items, 1):
                 scheda_snippet = item.get('scheda_text', '').strip()
@@ -154,21 +108,20 @@ Sei l'Assistente Intelligente e Consulente Tecnico/Culinario di una prestigiosa 
 
 IL TUO RUOLO E OBIETTIVI PRINCIPALI:
 1. **Risposte a Domande Trasversali sul Catalogo Generale**:
-   - Quando l'utente ti chiede ad esempio *"quali farine a catalogo sono indicate per lievitazioni 40-60 ore?"*, *"quali prodotti senza glutine abbiamo?"*, *"quali pelati/pomodori per pizza napoletana consigli?"*, o *"quali tagli di carne sono adatti a lunghe cotture?"*:
+   - Quando l'utente ti chiede ad esempio *"quali prosciutti cotti senza glutine abbiamo?"*, *"quali farine sono indicate per lievitazioni 40-60 ore?"*, *"quali prodotti senza lattosio abbiamo?"*, *"quali pelati/pomodori per pizza consigli?"*:
    - Analizza attentamente l'**ESTRATTO PRODOTTI E SCHEDE TECNICHE DAL CATALOGO AZIENDALE** fornito qui sotto.
-   - Individua gli articoli corrispondenti e cita esplicitamente il **Codice Articolo (SKU)**, la **Descrizione esatta**, e le caratteristiche tecniche oggettive (es. indice di forza W, rapporto P/L, % proteine, umidità, tempi di lievitazione consigliati o certificazioni).
-   - Se un parametro tecnico di un prodotto richiede un W specifico (es. per 40-60 ore di lievitazione/maturazione a 4°C serve una farina forte con W ≥ 330-390 e alto contenuto proteico come Manitoba o 5 Stagioni Oro/Rossa), spiega chiaramente le ragioni tecniche e consiglia come idratare e gestire l'impasto.
+   - Individua gli articoli corrispondenti e cita esplicitamente il **Codice Articolo (SKU)**, la **Descrizione esatta**, e le caratteristiche tecniche oggettive (es. certificazioni Senza Glutine / Senza Lattosio, ingredienti, % resa, allergeni, modalità di utilizzo).
 
 2. **Precisione e Trasparenza Certificata**:
    - Basa i dati tecnici (allergeni, valori nutrizionali, HACCP, conservazione) rigorosamente sui dati del catalogo aziendale e sulle schede tecniche PDF.
    - Non inventare codici articolo: cita solo quelli effettivamente presenti nell'estratto catalogo.
 
 3. **Consulenza Gastronomica di Alto Livello per Chef e Pizzaioli**:
-   - Arricchisci sempre le risposte con consigli pratici: temperature di lievitazione (puntata, appretto, maturazione in cella a 4°C), idratazione ideale, food cost ed eventuali abbinamenti.
+   - Arricchisci sempre le risposte con consigli pratici: utilizzi ottimali, abbinamenti in cucina e pizzeria, food cost ed indicazioni di servizio.
 
 4. **Stile di Risposta**:
    - Professionale, chiaro, strutturato con titoli in grassetto, punti elenco ed emoji sobrie.
-   - Evidenzia chiaramente i Codici SKU con backtick (es. `A110174`).
+   - Evidenzia chiaramente i Codici SKU con backtick (es. `A050808QU`).
 
 {product_context}
 """
