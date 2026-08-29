@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from typing import List, Dict, Any, Optional
 import config
 import database
@@ -23,7 +24,7 @@ def generate_ai_response(
     model_name: str = config.DEFAULT_GEMINI_MODEL,
     enable_web_search: bool = True
 ) -> Dict[str, Any]:
-    """Generates streaming/complete response with fallback models and domain-specialized context."""
+    """Generates streaming/complete response with multi-model fallback and rate-limit backoff."""
     client = get_client(api_key)
     if not client:
         return {
@@ -97,12 +98,12 @@ Sei l'Assistente Tecnico e Commerciale Ufficiale di Italian Food Trading S.r.l. 
 
 REGOLE TASSATIVE DI INTEGRITÀ AZIENDALE E CATALOGO:
 1. **CODICI ARTICOLO (SKU) E PRODOTTI REALI**:
-   - Cita ESCLUSIVAMENTE ed OBBLIGATORIAMENTE i codici SKU (es. `A110413QU`, `A110174`) e i nomi degli articoli presenti nell'ESTRATTO CATALOGO AZIENDALE fornito qui sotto.
+   - Cita ESCLUSIVAMENTE ed OBBLIGATORIAMENTE i codici SKU (es. `A110419QU`, `A110174`) e i nomi degli articoli presenti nell'ESTRATTO CATALOGO AZIENDALE fornito qui sotto.
    - È SEVERAMENTE VIETATO inventare codici articolo o proporre codici/marchi trovati su Google o da fonti esterne che NON siano presenti nell'estratto fornito.
    - Per ogni prodotto consigliato, indica sempre il **Codice SKU**, la **Descrizione esatta**, il **Prezzo Soglia** e la motivazione tecnica (es. W, proteine, ore di lievitazione indicate in scheda).
 
 2. **CONSULENZA TECNICA E PROFESSIONALE PER CHEF E PIZZAIOLI**:
-   - Spiega con competenza perché una determinata farina (es. W 300-380, Manitoba, Tipo 1 Infibra) è idonea per la maturazione richiesta (es. 48 ore in cella a 4°C, idratazione 65-75%, tenuta della maglia glutinica).
+   - Spiega con competenza perché una determinata farina o prodotto è idoneo per la lavorazione richiesta.
    - Usa la ricerca web Google SOLO per arricchire consigli di metodo (idratazione, lievito madre/birra, gestione temperature), MAI per inventare referenze di magazzino.
 
 3. **STRUTTURA DELLA RISPOSTA**:
@@ -127,69 +128,83 @@ REGOLE TASSATIVE DI INTEGRITÀ AZIENDALE E CATALOGO:
                 )
             )
 
-        # Fallback model list if requested model has quota/temporary issue
-        candidate_models = [model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.7-flash"]
+        # Fallback model list across multiple model families to avoid shared quota limits
+        candidate_models = [
+            model_name,
+            "gemini-3.6-flash",
+            "gemini-2.5-flash",
+            "gemini-flash-latest",
+            "gemini-3.5-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.7-flash"
+        ]
         seen = set()
         models_to_try = [m for m in candidate_models if not (m in seen or seen.add(m))]
 
         last_error = None
         for current_model in models_to_try:
-            try:
-                # Configure tools
-                tools = []
-                if enable_web_search:
-                    tools.append(types.Tool(google_search=types.GoogleSearch()))
+            for use_search in ([enable_web_search, False] if enable_web_search else [False]):
+                try:
+                    tools = []
+                    if use_search:
+                        tools.append(types.Tool(google_search=types.GoogleSearch()))
 
-                config_obj = types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.2,
-                    tools=tools if tools else None,
-                )
+                    config_obj = types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=0.2,
+                        tools=tools if tools else None,
+                    )
 
-                response = client.models.generate_content(
-                    model=current_model,
-                    contents=formatted_contents,
-                    config=config_obj
-                )
+                    response = client.models.generate_content(
+                        model=current_model,
+                        contents=formatted_contents,
+                        config=config_obj
+                    )
 
-                # Extract text safely
-                text_result = ""
-                grounding_chunks = []
-                
-                if response.text:
-                    text_result = response.text
-                elif response.candidates and response.candidates[0].content:
-                    parts = response.candidates[0].content.parts
-                    text_parts = [p.text for p in parts if p.text]
-                    text_result = "".join(text_parts)
+                    # Extract text safely
+                    text_result = ""
+                    grounding_chunks = []
+                    
+                    if response.text:
+                        text_result = response.text
+                    elif response.candidates and response.candidates[0].content:
+                        parts = response.candidates[0].content.parts
+                        text_parts = [p.text for p in parts if p.text]
+                        text_result = "".join(text_parts)
 
-                # Extract grounding metadata if present
-                if response.candidates and len(response.candidates) > 0:
-                    cand = response.candidates[0]
-                    if cand.grounding_metadata and cand.grounding_metadata.grounding_chunks:
-                        for chunk in cand.grounding_metadata.grounding_chunks:
-                            if chunk.web:
-                                grounding_chunks.append({
-                                    "title": chunk.web.title or "Google Web Source",
-                                    "url": chunk.web.uri
-                                })
+                    if response.candidates and len(response.candidates) > 0:
+                        cand = response.candidates[0]
+                        if cand.grounding_metadata and cand.grounding_metadata.grounding_chunks:
+                            for chunk in cand.grounding_metadata.grounding_chunks:
+                                if chunk.web:
+                                    grounding_chunks.append({
+                                        "title": chunk.web.title or "Google Web Source",
+                                        "url": chunk.web.uri
+                                    })
 
-                return {
-                    "text": text_result,
-                    "grounding_chunks": grounding_chunks,
-                    "model_used": current_model
-                }
+                    return {
+                        "text": text_result,
+                        "grounding_chunks": grounding_chunks,
+                        "model_used": current_model
+                    }
 
-            except Exception as e:
-                import time
-                err_msg = str(e)
-                last_error = e
-                # If 503, 429, or model not found, pause and try next model
-                if "503" in err_msg or "404" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "429" in err_msg or "NOT_FOUND" in err_msg:
-                    time.sleep(1.5)
-                    continue
-                else:
-                    break
+                except Exception as e:
+                    err_str = str(e)
+                    last_error = e
+                    # If rate limited (429) or temporary server error (503), back off and try fallback
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "503" in err_str or "404" in err_str:
+                        time.sleep(2.0)
+                        continue
+                    else:
+                        break
+
+        # If all models exceeded rate limits
+        err_msg = str(last_error)
+        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+            return {
+                "text": "⏱️ **Limite di richieste al minuto raggiunto (Google API 429 Quota).**\n\nL'account Google Gemini gratuito consente un numero massimo di richieste al minuto. **Attendi 10-15 secondi e riprova** cliccando di nuovo o selezionando un altro modello nella barra laterale sinistra.",
+                "grounding_chunks": []
+            }
 
         return {
             "text": f"⚠️ Si è verificato un errore durante la generazione della risposta: {str(last_error)}",
