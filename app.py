@@ -243,9 +243,9 @@ with st.sidebar:
         
     model_choice = st.selectbox(
         "Modello LLM",
-        options=["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-pro-latest"],
+        options=["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-pro-latest"],
         index=0,
-        help="Gemini 3.6 Flash garantisce massima velocità e stabilità."
+        help="Gemini 3.6 Flash o 2.5 Flash garantiscono massima velocità e stabilità."
     )
     
     enable_web_search = st.toggle("🌐 Ricerca Web Google in tempo reale", value=True, help="Ricerca abbinamenti, ricette gourmet e tendenze in tempo reale.")
