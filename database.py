@@ -92,6 +92,8 @@ def normalize_italian_term(word: str) -> List[str]:
         "formaggi": ["%formagg%", "%form%"],
         "farina": ["%farin%"],
         "farine": ["%farin%"],
+        "semola": ["%semol%"],
+        "semole": ["%semol%"],
         "pomodoro": ["%pomodor%"],
         "pomodori": ["%pomodor%"],
         "pelato": ["%pelat%"],
@@ -119,6 +121,27 @@ def normalize_italian_term(word: str) -> List[str]:
             
     return [f"%{w}%"]
 
+def extract_meaningful_tokens(query: str) -> List[str]:
+    """Filters out conversational filler and stopwords, leaving meaningful food and technical tokens"""
+    conversational_stop_words = {
+        "che", "chi", "cosa", "come", "dove", "quando", "perche", "perché", "quale", "quali",
+        "posso", "puoi", "possiamo", "potete", "vorrei", "volevo", "desidero", "chiedo",
+        "proporre", "consigliare", "consigliami", "consigli", "suggerisci", "suggeriscimi",
+        "trovare", "trovami", "cercare", "cerco", "mostrami", "fammi", "vedere", "dimmi",
+        "nostro", "nostra", "nostri", "nostre", "vostro", "vostra", "vostri", "vostre",
+        "catalogo", "listino", "magazzino", "stock", "disponibili", "disponibile", "abbiamo", "avete",
+        "cliente", "clienti", "locale", "locali", "pizzeria", "ristorante", "chef", "pizzaiolo",
+        "per", "con", "tra", "fra", "in", "a", "da", "di", "su", "il", "lo", "la", "i", "gli", "le",
+        "un", "uno", "una", "del", "dello", "della", "dei", "degli", "delle", "al", "allo", "alla",
+        "ai", "agli", "alle", "dal", "dallo", "dalla", "dai", "dagli", "dalle", "nel", "nello",
+        "nella", "nei", "negli", "nelle", "sul", "sullo", "sulla", "sui", "sugli", "sulle",
+        "piu", "più", "meno", "circa", "indicativamente", "bene", "ottimo", "ideale",
+        "indicati", "indicate", "indicato", "indicata", "adatti", "adatte", "adatto", "adatta",
+        "ad", "ed", "od", "ore", "ora", "giorni", "giorno", "tempo", "tempi", "senza", "tipo"
+    }
+    words = re.findall(r'\b[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]{2,}\b', query.lower())
+    return [w for w in words if w not in conversational_stop_words]
+
 def search_products(query: str = "", category: str = "", storage_env: str = "", limit: Optional[int] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
@@ -145,100 +168,112 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         conn.close()
         return rows
         
-    # Check for special dietary / allergen filters in query
     clean_lower = clean_query.lower()
     is_gluten_free_query = any(p in clean_lower for p in ["senza glutine", "gluten free", "per celiaci", "no glutine", "senza glut."])
     is_lactose_free_query = any(p in clean_lower for p in ["senza lattosio", "delattosato", "lactose free", "no lattosio", "delattosata"])
     
-    # Extract words
-    words = re.findall(r'\b[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]{2,}\b', clean_query)
+    # Extract core tokens
+    tokens = extract_meaningful_tokens(clean_query)
+    numeric_tokens = re.findall(r'\b\d+\b', clean_query)
     
-    # Filter out conversational filler and stopwords
-    stop_words = {
-        "quali", "quale", "cosa", "come", "dove", "sono", "abbiamo", "catalogo", 
-        "indicati", "indicate", "indicato", "indicata", "consigliami", "trovami",
-        "vorrei", "sapere", "dimmi", "elenco", "tutti", "tutte", "degli", "delle",
-        "della", "dello", "agli", "alle", "alla", "allo", "nella", "nello", "nelle",
-        "negli", "questo", "questa", "questi", "queste", "nostro", "nostra", "nostri",
-        "nostre", "vostro", "vostra", "vostri", "vostre", "senza", "avessimo", "avete",
-        "avere", "presenti", "presente", "trovare", "cercare", "cerco", "volevo", "nel",
-        "sul", "sulla", "sulle", "sugli", "sui", "per", "con", "tra", "fra"
-    }
-    
-    # Filter search words
-    search_words = []
-    for w in words:
-        wl = w.lower()
-        if is_gluten_free_query and wl in ["glutine", "gluten", "celiaci"]:
+    # Filter tokens if specific allergen query
+    filtered_tokens = []
+    for t in tokens:
+        if is_gluten_free_query and t in ["glutine", "gluten", "celiaci"]:
             continue
-        if is_lactose_free_query and wl in ["lattosio", "lactose", "delattosato", "delattosati"]:
+        if is_lactose_free_query and t in ["lattosio", "lactose", "delattosato"]:
             continue
-        if wl not in stop_words:
-            search_words.append(w)
-            
-    if not search_words:
-        # If all were filtered out, keep nouns
-        search_words = [w for w in words if w.lower() not in {"quali", "quale", "abbiamo", "catalogo", "avessimo", "nel"}]
+        filtered_tokens.append(t)
         
-    score_parts = []
-    score_params = []
-    
-    # Exact SKU match (highest weight)
-    score_parts.append("CASE WHEN UPPER(cod_art) = UPPER(?) THEN 1000 ELSE 0 END")
-    score_params.append(clean_query)
-    
-    # SKU prefix match
-    score_parts.append("CASE WHEN UPPER(cod_art) LIKE UPPER(?) THEN 500 ELSE 0 END")
-    score_params.append(f"{clean_query}%")
-    
-    # Description exact phrase match
-    score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 300 ELSE 0 END")
-    score_params.append(f"%{clean_query}%")
-    
-    term_conditions = []
-    term_params = []
-    
-    for word in search_words:
-        variants = normalize_italian_term(word)
-        if not variants:
-            continue
-            
-        variant_subconditions = []
-        for v in variants:
-            variant_subconditions.append("(cod_art LIKE ? OR descrizione_articolo LIKE ? OR gruppo_art LIKE ? OR descrizione_commerciale LIKE ? OR scheda_text LIKE ?)")
-            term_params.extend([v, v, v, v, v])
-            
-            score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 120 ELSE 0 END")
-            score_params.append(v)
-            
-        if variant_subconditions:
-            term_conditions.append(f"({' OR '.join(variant_subconditions)})")
-            
-    # Apply dietary / allergen constraints if requested
-    if is_gluten_free_query:
-        term_conditions.append("(scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%' OR scheda_text LIKE '%assenza di glutine%' OR descrizione_articolo LIKE '%S/GLUT%' OR descrizione_articolo LIKE '%SENZA GLUT%')")
-        score_parts.append("CASE WHEN (scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%') THEN 250 ELSE 0 END")
+    # Food/domain tokens (non-numeric)
+    food_tokens = [t for t in filtered_tokens if not t.isdigit() and len(t) > 2]
+    if not food_tokens:
+        food_tokens = [t for t in filtered_tokens if len(t) > 1]
+    if not food_tokens:
+        food_tokens = re.findall(r'\b[a-zA-Z0-9]{2,}\b', clean_lower)
         
-    if is_lactose_free_query:
-        term_conditions.append("(scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%' OR scheda_text LIKE '%assenza di lattosio%' OR descrizione_articolo LIKE '%S/LATT%' OR descrizione_articolo LIKE '%SENZA LATT%')")
-        score_parts.append("CASE WHEN (scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%') THEN 250 ELSE 0 END")
+    # Helper to execute query with token conditions
+    def execute_query(required_tokens: List[str]):
+        score_parts = []
+        score_params = []
         
-    score_sql = " + ".join(score_parts) if score_parts else "0"
-    all_conditions = base_conditions + term_conditions
-    where_clause = " WHERE " + " AND ".join(all_conditions) if all_conditions else ""
+        # Exact SKU match
+        score_parts.append("CASE WHEN UPPER(cod_art) = UPPER(?) THEN 1000 ELSE 0 END")
+        score_params.append(clean_query)
+        
+        # SKU prefix match
+        score_parts.append("CASE WHEN UPPER(cod_art) LIKE UPPER(?) THEN 500 ELSE 0 END")
+        score_params.append(f"{clean_query}%")
+        
+        # Description exact phrase match
+        score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 300 ELSE 0 END")
+        score_params.append(f"%{clean_query}%")
+        
+        # Technical relevance boosts in PDF text or description
+        for num in numeric_tokens:
+            score_parts.append("CASE WHEN (scheda_text LIKE ? OR descrizione_articolo LIKE ?) THEN 250 ELSE 0 END")
+            score_params.extend([f"%{num}%", f"%{num}%"])
+            
+        for kw in ["w350", "w380", "w300", "w 3", "manitoba", "lunga lievitazione", "alta qualita", "dop"]:
+            score_parts.append(f"CASE WHEN (scheda_text LIKE '%{kw}%' OR descrizione_articolo LIKE '%{kw}%') THEN 200 ELSE 0 END")
+            
+        term_conditions = []
+        term_params = []
+        
+        for token in required_tokens:
+            variants = normalize_italian_term(token)
+            if not variants:
+                continue
+                
+            variant_subconditions = []
+            for v in variants:
+                # Search product identification fields (NOT allergen cross-contamination text)
+                variant_subconditions.append("(cod_art LIKE ? OR descrizione_articolo LIKE ? OR gruppo_art LIKE ? OR descrizione_commerciale LIKE ?)")
+                term_params.extend([v, v, v, v])
+                
+                score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 120 ELSE 0 END")
+                score_params.append(v)
+                
+            if variant_subconditions:
+                term_conditions.append(f"({' OR '.join(variant_subconditions)})")
+                
+        # Dietary / Allergen constraints (searched specifically in technical sheets)
+        if is_gluten_free_query:
+            term_conditions.append("(scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%' OR scheda_text LIKE '%assenza di glutine%' OR descrizione_articolo LIKE '%S/GLUT%' OR descrizione_articolo LIKE '%SENZA GLUT%')")
+            score_parts.append("CASE WHEN (scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%') THEN 300 ELSE 0 END")
+            
+        if is_lactose_free_query:
+            term_conditions.append("(scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%' OR scheda_text LIKE '%assenza di lattosio%' OR descrizione_articolo LIKE '%S/LATT%' OR descrizione_articolo LIKE '%SENZA LATT%')")
+            score_parts.append("CASE WHEN (scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%') THEN 300 ELSE 0 END")
+            
+        score_sql = " + ".join(score_parts) if score_parts else "0"
+        all_conditions = base_conditions + term_conditions
+        where_clause = " WHERE " + " AND ".join(all_conditions) if all_conditions else ""
+        
+        all_params = score_params + base_params + term_params
+        sql = f"""
+        SELECT *, ({score_sql}) AS relevance_score
+        FROM products
+        {where_clause}
+        ORDER BY relevance_score DESC, descrizione_articolo ASC{limit_clause}
+        """
+        
+        cursor.execute(sql, all_params)
+        return [dict(row) for row in cursor.fetchall()]
+
+    # 1. Try with food tokens
+    results = execute_query(food_tokens)
     
-    all_params = score_params + base_params + term_params
-    sql = f"""
-    SELECT *, ({score_sql}) AS relevance_score
-    FROM products
-    {where_clause}
-    ORDER BY relevance_score DESC, descrizione_articolo ASC{limit_clause}
-    """
-    
-    cursor.execute(sql, all_params)
-    rows = [dict(row) for row in cursor.fetchall()]
+    # 2. If 0, try individual food tokens (e.g. 'farine')
+    if not results and len(food_tokens) > 1:
+        for single_token in food_tokens:
+            single_res = execute_query([single_token])
+            if single_res:
+                results = single_res
+                break
+
     conn.close()
-    return rows
+    return results
 
 def get_product_by_code(cod_art: str) -> Optional[Dict[str, Any]]:
     conn = get_connection()

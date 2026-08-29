@@ -1,45 +1,34 @@
 import os
-import time
-from typing import Dict, Any, Optional, List
+import re
+from typing import List, Dict, Any, Optional
 import config
 import database
 
-def get_gemini_client(api_key: Optional[str] = None):
-    key = api_key or os.getenv("GEMINI_API_KEY") or config.GEMINI_API_KEY
+def get_client(api_key: Optional[str] = None):
+    """Initializes Google GenAI client."""
+    from google import genai
+    key = api_key or config.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
     if not key:
-        return None, "API Key non configurata. Inserisci la tua Google Gemini API Key per iniziare."
-        
-    try:
-        from google import genai
-        client = genai.Client(api_key=key)
-        return client, None
-    except Exception as e:
-        return None, f"Errore nell'inizializzazione del client Gemini: {e}"
+        return None
+    return genai.Client(api_key=key)
 
 def retrieve_relevant_catalog_items(user_query: str, limit: int = 15) -> List[Dict[str, Any]]:
-    """Retrieves the most relevant products and technical sheets for general questions using smart database search"""
-    return database.search_products(query=user_query, limit=limit)
+    """Performs dynamic keyword extraction and hybrid search across products and technical sheet PDFs."""
+    return database.search_products(user_query, limit=limit)
 
 def generate_ai_response(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, str]], 
     current_product: Optional[Dict[str, Any]] = None,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = config.DEFAULT_GEMINI_MODEL,
     enable_web_search: bool = True
 ) -> Dict[str, Any]:
-    """
-    Generates a contextual response using Gemini with:
-    - Single product focused technical consultation
-    - Multi-product General Catalog Technical RAG retrieval
-    - Google Search Grounding with 429 quota fallback
-    - Multi-model failover & retry
-    """
-    client, err = get_gemini_client(api_key)
-    if err:
+    """Generates streaming/complete response with fallback models and domain-specialized context."""
+    client = get_client(api_key)
+    if not client:
         return {
-            "text": f"⚠️ {err}",
-            "sources": [],
-            "grounding_metadata": None
+            "text": "⚠️ **Chiave API Google Gemini non configurata.**\n\nInserisci la tua API Key nella barra laterale sinistra per sbloccare le funzionalità di consulenza AI.",
+            "grounding_chunks": []
         }
 
     latest_user_message = ""
@@ -64,7 +53,7 @@ INFORMAZIONI PRODOTTO SPECIFICO SELEZIONATO DALL'UTENTE (MODALITÀ FOCUS):
 - Shelf Life: {current_product.get('shelf_life_it', 'N/D')}
 - Minimo d'Ordine: {current_product.get('minimo_ordine', 'N/D')}
 - Descrizione Commerciale: {current_product.get('descrizione_commerciale', 'N/D')}
-- Prezzo Indicativo / Listino: {current_product.get('prezzo_indicativo', 'N/D')} €
+- Prezzo Soglia / Listino Ufficiale: € {current_product.get('prezzo_indicativo', 'N/D')} / {current_product.get('um', 'Kg')}
 """
         scheda_text = current_product.get('scheda_text', '').strip()
         if scheda_text:
@@ -81,8 +70,8 @@ TESTO ESTRATTO DALLA SCHEDA TECNICA UFFICIALE (PDF):
         retrieved_items = retrieve_relevant_catalog_items(latest_user_message, limit=15)
         if retrieved_items:
             product_context = f"""
-ESTRATTO PRODOTTI E SCHEDE TECNICHE DAL CATALOGO AZIENDALE (RISULTATI RICERCA AUTOMATICA):
-Sono stati trovati {len(retrieved_items)} articoli pertinenti alla domanda dell'utente. Utilizza questi dati ufficiali per rispondere citando SKU, descrizioni e specifiche tecniche:
+ESTRATTO PRODOTTI E SCHEDE TECNICHE DAL CATALOGO AZIENDALE (RISULTATI REALI DI MAGAZZINO):
+Sono presenti a magazzino i seguenti {len(retrieved_items)} articoli. Fai riferimento ESCLUSIVAMENTE a questi prodotti reali:
 """
             for idx, item in enumerate(retrieved_items, 1):
                 scheda_snippet = item.get('scheda_text', '').strip()
@@ -96,32 +85,28 @@ Sono stati trovati {len(retrieved_items)} articoli pertinenti alla domanda dell'
 - Categoria/Gruppo: {item.get('gruppo_art', 'N/D')}
 - Conservazione: {item.get('ambiente_cons', 'N/D')}
 - Shelf-Life: {item.get('shelf_life_it', 'N/D')}
-- Prezzo Indicativo: € {item.get('prezzo_indicativo', 'N/D')} / {item.get('um', 'Kg')}
+- Prezzo Soglia: € {item.get('prezzo_indicativo', 'N/D')} / {item.get('um', 'Kg')}
 - Dati Scheda Tecnica Ufficiale PDF:
 {scheda_snippet if scheda_snippet else '(Nessun testo scheda tecnica estratto)'}
 """
         else:
-            product_context = "\n(Nessun prodotto specifico agganciato. L'utente sta consultando il catalogo in modalità generale)\n"
+            product_context = "\n(Nessun prodotto corrispondente trovato nell'estratto. Se la domanda richiede prodotti a catalogo, avvisa che non risultano disponibili)\n"
 
     system_instruction = f"""
-Sei l'Assistente Intelligente e Consulente Tecnico/Culinario di una prestigiosa azienda di distribuzione alimentare Ho.Re.Ca (fornitore ufficiale di ristoranti, pizzerie gourmet, bistrot e gastronomie).
+Sei l'Assistente Tecnico e Commerciale Ufficiale di Italian Food Trading S.r.l. (Verona), fornitore d'eccellenza per il settore Ho.Re.Ca (ristoranti, pizzerie, bistrot).
 
-IL TUO RUOLO E OBIETTIVI PRINCIPALI:
-1. **Risposte a Domande Trasversali sul Catalogo Generale**:
-   - Quando l'utente ti chiede ad esempio *"quali prosciutti cotti senza glutine abbiamo?"*, *"quali farine sono indicate per lievitazioni 40-60 ore?"*, *"quali prodotti senza lattosio abbiamo?"*, *"quali pelati/pomodori per pizza consigli?"*:
-   - Analizza attentamente l'**ESTRATTO PRODOTTI E SCHEDE TECNICHE DAL CATALOGO AZIENDALE** fornito qui sotto.
-   - Individua gli articoli corrispondenti e cita esplicitamente il **Codice Articolo (SKU)**, la **Descrizione esatta**, e le caratteristiche tecniche oggettive (es. certificazioni Senza Glutine / Senza Lattosio, ingredienti, % resa, allergeni, modalità di utilizzo).
+REGOLE TASSATIVE DI INTEGRITÀ AZIENDALE E CATALOGO:
+1. **CODICI ARTICOLO (SKU) E PRODOTTI REALI**:
+   - Cita ESCLUSIVAMENTE ed OBBLIGATORIAMENTE i codici SKU (es. `A110413QU`, `A110174`) e i nomi degli articoli presenti nell'ESTRATTO CATALOGO AZIENDALE fornito qui sotto.
+   - È SEVERAMENTE VIETATO inventare codici articolo o proporre codici/marchi trovati su Google o da fonti esterne che NON siano presenti nell'estratto fornito.
+   - Per ogni prodotto consigliato, indica sempre il **Codice SKU**, la **Descrizione esatta**, il **Prezzo Soglia** e la motivazione tecnica (es. W, proteine, ore di lievitazione indicate in scheda).
 
-2. **Precisione e Trasparenza Certificata**:
-   - Basa i dati tecnici (allergeni, valori nutrizionali, HACCP, conservazione) rigorosamente sui dati del catalogo aziendale e sulle schede tecniche PDF.
-   - Non inventare codici articolo: cita solo quelli effettivamente presenti nell'estratto catalogo.
+2. **CONSULENZA TECNICA E PROFESSIONALE PER CHEF E PIZZAIOLI**:
+   - Spiega con competenza perché una determinata farina (es. W 300-380, Manitoba, Tipo 1 Infibra) è idonea per la maturazione richiesta (es. 48 ore in cella a 4°C, idratazione 65-75%, tenuta della maglia glutinica).
+   - Usa la ricerca web Google SOLO per arricchire consigli di metodo (idratazione, lievito madre/birra, gestione temperature), MAI per inventare referenze di magazzino.
 
-3. **Consulenza Gastronomica di Alto Livello per Chef e Pizzaioli**:
-   - Arricchisci sempre le risposte con consigli pratici: utilizzi ottimali, abbinamenti in cucina e pizzeria, food cost ed indicazioni di servizio.
-
-4. **Stile di Risposta**:
-   - Professionale, chiaro, strutturato con titoli in grassetto, punti elenco ed emoji sobrie.
-   - Evidenzia chiaramente i Codici SKU con backtick (es. `A050808QU`).
+3. **STRUTTURA DELLA RISPOSTA**:
+   - Accogliente, professionale, formattata chiaramente con titoli, sezioni, codici SKU in evidenza (`SKU`) e consigli applicativi.
 
 {product_context}
 """
@@ -142,92 +127,77 @@ IL TUO RUOLO E OBIETTIVI PRINCIPALI:
                 )
             )
 
-        # Fallback model chain
-        models_chain = [model_name]
-        for fallback_m in ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.7-flash"]:
-            if fallback_m not in models_chain:
-                models_chain.append(fallback_m)
+        # Fallback model list if requested model has quota/temporary issue
+        candidate_models = [model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.7-flash"]
+        seen = set()
+        models_to_try = [m for m in candidate_models if not (m in seen or seen.add(m))]
 
         last_error = None
-        response = None
-
-        for target_model in models_chain:
-            # Try with web search first if enabled
-            if enable_web_search:
-                try:
-                    config_with_search = types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.7,
-                        tools=[types.Tool(google_search=types.GoogleSearch())]
-                    )
-                    response = client.models.generate_content(
-                        model=target_model,
-                        contents=formatted_contents,
-                        config=config_with_search
-                    )
-                    break
-                except Exception as search_err:
-                    err_str = str(search_err)
-                    if "503" in err_str or "UNAVAILABLE" in err_str:
-                        time.sleep(0.3)
-
-            # Standard generation fallback
+        for current_model in models_to_try:
             try:
-                config_standard = types.GenerateContentConfig(
+                # Configure tools
+                tools = []
+                if enable_web_search:
+                    tools.append(types.Tool(google_search=types.GoogleSearch()))
+
+                config_obj = types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=0.7
+                    temperature=0.2,
+                    tools=tools if tools else None,
                 )
+
                 response = client.models.generate_content(
-                    model=target_model,
+                    model=current_model,
                     contents=formatted_contents,
-                    config=config_standard
+                    config=config_obj
                 )
-                break
-            except Exception as gen_err:
-                last_error = gen_err
-                err_str = str(gen_err)
-                if "503" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str.lower():
-                    time.sleep(0.3)
+
+                # Extract text safely
+                text_result = ""
+                grounding_chunks = []
+                
+                if response.text:
+                    text_result = response.text
+                elif response.candidates and response.candidates[0].content:
+                    parts = response.candidates[0].content.parts
+                    text_parts = [p.text for p in parts if p.text]
+                    text_result = "".join(text_parts)
+
+                # Extract grounding metadata if present
+                if response.candidates and len(response.candidates) > 0:
+                    cand = response.candidates[0]
+                    if cand.grounding_metadata and cand.grounding_metadata.grounding_chunks:
+                        for chunk in cand.grounding_metadata.grounding_chunks:
+                            if chunk.web:
+                                grounding_chunks.append({
+                                    "title": chunk.web.title or "Google Web Source",
+                                    "url": chunk.web.uri
+                                })
+
+                return {
+                    "text": text_result,
+                    "grounding_chunks": grounding_chunks,
+                    "model_used": current_model
+                }
+
+            except Exception as e:
+                import time
+                err_msg = str(e)
+                last_error = e
+                # If 503, 429, or model not found, pause and try next model
+                if "503" in err_msg or "404" in err_msg or "RESOURCE_EXHAUSTED" in err_msg or "429" in err_msg or "NOT_FOUND" in err_msg:
+                    time.sleep(1.5)
                     continue
                 else:
-                    continue
-
-        if response is None:
-            return {
-                "text": f"❌ Si è verificato un errore temporaneo dei server Google: {str(last_error)}. Riprova tra qualche istante.",
-                "sources": [],
-                "grounding_metadata": None
-            }
-
-        response_text = response.text or ""
-
-        # Extract web citations if available
-        sources = []
-        grounding_meta = None
-        try:
-            if hasattr(response, 'candidates') and response.candidates:
-                candidate = response.candidates[0]
-                if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
-                    grounding_meta = candidate.grounding_metadata
-                    if hasattr(grounding_meta, 'grounding_chunks') and grounding_meta.grounding_chunks:
-                        for chunk in grounding_meta.grounding_chunks:
-                            if hasattr(chunk, 'web') and chunk.web:
-                                sources.append({
-                                    "title": chunk.web.title or "Fonte Web",
-                                    "url": chunk.web.uri or ""
-                                })
-        except Exception:
-            pass
+                    break
 
         return {
-            "text": response_text,
-            "sources": sources,
-            "grounding_metadata": grounding_meta
+            "text": f"⚠️ Si è verificato un errore durante la generazione della risposta: {str(last_error)}",
+            "grounding_chunks": []
         }
 
     except Exception as e:
         return {
-            "text": f"❌ Si è verificato un errore durante la generazione della risposta AI: {str(e)}",
-            "sources": [],
-            "grounding_metadata": None
+            "text": f"⚠️ Errore di configurazione AI: {str(e)}",
+            "grounding_chunks": []
         }
