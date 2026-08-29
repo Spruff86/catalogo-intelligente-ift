@@ -375,7 +375,7 @@ with tab_catalog:
                         if current_prod.get('prezzo_indicativo'):
                             st.markdown(f"""
                             <div class="price-tag-box">
-                                <div style="font-size:0.75rem; color:#047857; font-weight:600;">Listino / Contratto:</div>
+                                <div style="font-size:0.75rem; color:#047857; font-weight:600;">Prezzo Soglia:</div>
                                 <div class="price-value-text">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</div>
                             </div>
                             """, unsafe_allow_html=True)

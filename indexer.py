@@ -118,7 +118,9 @@ def run_indexing():
         tempo_cons_gg = get_val(row, "TempoCons_gg") or get_val(row, "DeliveryTime_days")
         minimo_ordine = get_val(row, "Minimo_ordine") or get_val(row, "Minimum_order")
         descrizione_commerciale = get_val(row, "Descrizione Commerciale") or get_val(row, "Commercial_Description")
-        prezzo_indicativo = get_val(row, "Contratto") or get_val(row, "Ordin") or get_val(row, "Prz_BP")
+        
+        # Priority: Prezzo Soglia -> Obiettivo -> Contratto
+        prezzo_indicativo = get_val(row, "Soglia") or get_val(row, "Obiettivo") or get_val(row, "Contratto") or get_val(row, "Prz_BP")
         art_attivo = get_val(row, "Art_Attivo", "Y")
         
         # Match Photo
@@ -188,15 +190,16 @@ def run_indexing():
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, products_to_insert)
     
+    # Populate FTS
+    print("Building full-text search index...")
+    cursor.execute("""
+    INSERT INTO products_fts(rowid, cod_art, descrizione_articolo, gruppo_art, descrizione_commerciale, scheda_text)
+    SELECT rowid, cod_art, descrizione_articolo, gruppo_art, descrizione_commerciale, scheda_text FROM products
+    """)
+    
     conn.commit()
     conn.close()
-    
-    stats = database.get_catalog_stats()
-    print("Indexing complete! Catalog stats:")
-    print(f" - Total products: {stats['total_products']}")
-    print(f" - With photos: {stats['with_foto']}")
-    print(f" - With technical data sheets (PDF): {stats['with_scheda']}")
-    print(f" - With extracted PDF text: {stats['with_text']}")
+    print("Indexing complete! Database ready.")
 
 if __name__ == "__main__":
     run_indexing()

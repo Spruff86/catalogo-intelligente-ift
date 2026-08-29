@@ -7,6 +7,9 @@ load_dotenv()
 # Base directory of the repository
 BASE_DIR = Path(__file__).parent.resolve()
 
+# Excel Catalog Path
+DATA_EXCEL_PATH = BASE_DIR / "Dati per catalogo intelligente aggiornati al 2026-08-29.xlsx"
+
 # Database Path
 DB_PATH = BASE_DIR / "catalogo_horeca.db"
 
