@@ -30,7 +30,7 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
     
-    h1, h2, h3, .main-title, .hero-title {
+    h1, h2, h3, .hero-title {
         font-family: 'Outfit', sans-serif !important;
         letter-spacing: -0.02em;
     }
@@ -44,24 +44,13 @@ st.markdown("""
     .hero-banner {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
         border-radius: 18px;
-        padding: 28px 32px;
+        padding: 26px 30px;
         color: white;
-        margin-bottom: 24px;
-        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+        margin-bottom: 20px;
+        box-shadow: 0 16px 20px -5px rgba(15, 23, 42, 0.12);
         position: relative;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .hero-banner::after {
-        content: "";
-        position: absolute;
-        top: -50%;
-        right: -20%;
-        width: 380px;
-        height: 380px;
-        background: radial-gradient(circle, rgba(217, 119, 6, 0.25) 0%, rgba(15, 23, 42, 0) 70%);
-        pointer-events: none;
     }
     
     .hero-title {
@@ -74,98 +63,75 @@ st.markdown("""
     }
     
     .hero-subtitle {
-        font-size: 1rem;
+        font-size: 0.98rem;
         color: #94A3B8;
         margin-top: 6px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
     }
     
     .hero-stats-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 12px;
+        gap: 10px;
+        margin-top: 10px;
     }
     
     .hero-pill {
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.15);
-        padding: 6px 14px;
+        padding: 5px 12px;
         border-radius: 30px;
         font-size: 0.82rem;
         font-weight: 600;
         color: #E2E8F0;
-        display: flex;
-        align-items: center;
-        gap: 6px;
     }
     
-    /* Product Showcase Card */
-    .premium-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 16px;
-        padding: 24px;
-        margin-top: 12px;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .product-title {
-        font-size: 1.45rem;
+    .product-title-text {
+        font-size: 1.4rem;
         font-weight: 700;
         color: #0F172A;
         margin-bottom: 4px;
+        line-height: 1.3;
     }
     
-    .sku-tag {
+    .sku-badge {
         display: inline-block;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-family: ui-monospace, monospace !important;
         background: #F1F5F9;
         color: #475569;
-        padding: 3px 8px;
+        padding: 3px 10px;
         border-radius: 6px;
         font-size: 0.85rem;
-        font-weight: 600;
-        border: 1px solid #E2E8F0;
-        margin-bottom: 12px;
+        font-weight: 700;
+        border: 1px solid #CBD5E1;
+        margin-bottom: 8px;
     }
     
-    .price-box {
-        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    .price-tag-box {
+        background: #ECFDF5;
         border: 1px solid #A7F3D0;
         border-radius: 10px;
-        padding: 10px 16px;
-        display: inline-block;
-        margin-top: 8px;
-        margin-bottom: 12px;
+        padding: 10px 14px;
+        margin-top: 6px;
+        margin-bottom: 8px;
     }
     
-    .price-value {
+    .price-value-text {
         font-size: 1.25rem;
         font-weight: 800;
         color: #065F46;
     }
     
     /* Badges */
-    .badge-wrap {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-        margin-bottom: 14px;
-    }
-    
     .badge-pill {
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.82rem;
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 0.8rem;
         font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+        margin-right: 4px;
+        margin-bottom: 6px;
     }
     
     .badge-category { background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; }
@@ -174,19 +140,10 @@ st.markdown("""
     .badge-asciutto { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
     .badge-shelflife { background: #FAF5FF; color: #7E22CE; border: 1px solid #F3E8FF; }
     .badge-packaging { background: #F8FAFC; color: #334155; border: 1px solid #CBD5E1; }
-    
-    /* Image Frame */
-    .img-frame {
-        border-radius: 14px;
-        overflow: hidden;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        background: #FFFFFF;
-    }
 
     /* Focus Alert Banner */
     .focus-alert-active {
-        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+        background: #EFF6FF;
         border: 1px solid #93C5FD;
         border-radius: 12px;
         padding: 14px 18px;
@@ -195,7 +152,7 @@ st.markdown("""
     }
     
     .focus-alert-general {
-        background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+        background: #F0FDF4;
         border: 1px solid #86EFAC;
         border-radius: 12px;
         padding: 14px 18px;
@@ -203,53 +160,27 @@ st.markdown("""
         margin-bottom: 16px;
     }
 
+    /* Streamlit Native Container Styling */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: #FFFFFF;
+        border-radius: 16px !important;
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+        padding: 18px;
+        margin-top: 10px;
+        margin-bottom: 16px;
+    }
+
     /* Action Buttons styling */
     .stButton>button {
         border-radius: 10px !important;
         font-weight: 600 !important;
-        transition: all 0.2s ease !important;
+        transition: all 0.15s ease !important;
     }
     
     .stButton>button:hover {
         transform: translateY(-1px);
         box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Quick Prompt Chips */
-    .quick-chip-btn button {
-        background: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        color: #1E293B !important;
-        border-radius: 20px !important;
-        font-size: 0.86rem !important;
-        padding: 6px 12px !important;
-    }
-    
-    .quick-chip-btn button:hover {
-        background: #F8FAFC !important;
-        border-color: #3B82F6 !important;
-        color: #1D4ED8 !important;
-    }
-
-    /* Tabs header */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: #E2E8F0;
-        padding: 4px;
-        border-radius: 12px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        font-weight: 600;
-        color: #475569;
-        padding: 8px 18px;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: #FFFFFF !important;
-        color: #0F172A !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -272,7 +203,7 @@ if not config.DB_PATH.exists():
 with st.sidebar:
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-        <img src="https://img.icons8.com/fluency/96/restaurant-menu.png" width="48" style="border-radius: 10px;">
+        <img src="https://img.icons8.com/fluency/96/restaurant-menu.png" width="46" style="border-radius: 10px;">
         <div>
             <div style="font-weight: 800; font-size: 1.15rem; color: #0F172A; line-height: 1.1;">Catalogo HoReCa</div>
             <div style="font-size: 0.8rem; color: #64748B;">Italian Food Distribution</div>
@@ -350,12 +281,8 @@ with st.sidebar:
 # --- HERO HEADER BANNER ---
 st.markdown(f"""
 <div class="hero-banner">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-            <div class="hero-title">🍴 Catalogo Intelligente & Assistente Ho.Re.Ca</div>
-            <div class="hero-subtitle">Consulenza Tecnica Certificata da Schede Ufficiali • Ricette Gourmet & Tendenze di Mercato con AI</div>
-        </div>
-    </div>
+    <div class="hero-title">🍴 Catalogo Intelligente & Assistente Ho.Re.Ca</div>
+    <div class="hero-subtitle">Consulenza Tecnica Certificata da Schede Ufficiali • Ricette Gourmet & Tendenze di Mercato con AI</div>
     <div class="hero-stats-row">
         <div class="hero-pill">📦 {stats['total_products']:,} Articoli a Catalogo</div>
         <div class="hero-pill">📸 {stats['with_foto']:,} Foto HD</div>
@@ -393,11 +320,7 @@ with tab_catalog:
     if not products:
         st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a selezionare 'Tutte' nei filtri di categoria.")
     else:
-        st.markdown(f"""
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="color:#0F172A; font-weight:700; font-size:1.05rem;">🎯 Trovati <b>{len(products)}</b> articoli pertinenti:</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"🎯 Trovati **{len(products)}** articoli pertinenti:")
         
         # Product selector
         product_options = {
@@ -416,100 +339,98 @@ with tab_catalog:
         current_prod = database.get_product_by_code(selected_sku)
         
         if current_prod:
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            col_img, col_info = st.columns([1, 2], gap="large")
-            
-            with col_img:
-                foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR)
-                if foto_resolved and os.path.exists(foto_resolved):
-                    st.image(foto_resolved, use_container_width=True, caption=f"Cod. Art: {current_prod['cod_art']}")
-                else:
-                    st.markdown("""
-                    <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8;">
-                        <span style="font-size:2.5rem;">📷</span>
-                        <span style="font-size:0.85rem; font-weight:600; margin-top:6px;">Foto non disponibile</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                st.write("")
-                scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
-                if scheda_resolved and os.path.exists(scheda_resolved):
-                    with open(scheda_resolved, "rb") as f:
-                        st.download_button(
-                            label="📥 Scarica Scheda Tecnica (PDF)",
-                            data=f.read(),
-                            file_name=os.path.basename(scheda_resolved),
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                else:
-                    st.caption("📄 Nessuna scheda tecnica PDF allegata")
-            
-            with col_info:
-                st.markdown(f'<div class="product-title">{current_prod["descrizione_articolo"]}</div>', unsafe_allow_html=True)
-                st.markdown(f'<span class="sku-tag">SKU: {current_prod["cod_art"]}</span>', unsafe_allow_html=True)
+            # Native Streamlit border container to avoid HTML block fragmentation
+            with st.container(border=True):
+                col_img, col_info = st.columns([1, 2], gap="large")
                 
-                # Dynamic Environment Badge Color
-                env_class = "badge-refrigerato" if "refrigerato" in current_prod.get('ambiente_cons', '').lower() else ("badge-congelato" if "congelato" in current_prod.get('ambiente_cons', '').lower() else "badge-asciutto")
-                
-                badge_html = f"""
-                <div class="badge-wrap">
-                    <span class="badge-pill badge-category">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
-                    <span class="badge-pill {env_class}">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
-                    <span class="badge-pill badge-shelflife">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
-                    <span class="badge-pill badge-packaging">⚖️ {current_prod.get('tipo_peso', 'N/D')}</span>
-                    <span class="badge-pill badge-packaging">📦 {current_prod.get('unita_imballi', 'N/D')}</span>
-                </div>
-                """
-                st.markdown(badge_html, unsafe_allow_html=True)
-                
-                # Key details grid
-                col_d1, col_d2 = st.columns(2)
-                with col_d1:
-                    st.markdown(f"• **Unità di Misura:** `{current_prod.get('um', 'Kg')}`")
-                    st.markdown(f"• **Minimo d'Ordine:** `{current_prod.get('minimo_ordine', 'N/D')}`")
-                    st.markdown(f"• **Tempo Consegna:** `{current_prod.get('tempo_cons_gg', 'N/D')} giorni`")
-                with col_d2:
-                    st.markdown(f"• **Stato Articolo:** `{'Attivo a Listino' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}`")
-                    if current_prod.get('prezzo_indicativo'):
-                        st.markdown(f"""
-                        <div class="price-box">
-                            <span style="font-size:0.8rem; color:#047857; font-weight:600;">Listino / Contratto:</span><br>
-                            <span class="price-value">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</span>
+                with col_img:
+                    foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR)
+                    if foto_resolved and os.path.exists(foto_resolved):
+                        st.image(foto_resolved, use_container_width=True, caption=f"Cod. Art: {current_prod['cod_art']}")
+                    else:
+                        st.markdown("""
+                        <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8; margin-bottom:12px;">
+                            <span style="font-size:2.5rem;">📷</span>
+                            <span style="font-size:0.85rem; font-weight:600; margin-top:6px;">Foto non disponibile</span>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                    scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
+                    if scheda_resolved and os.path.exists(scheda_resolved):
+                        with open(scheda_resolved, "rb") as f:
+                            st.download_button(
+                                label="📥 Scarica Scheda Tecnica (PDF)",
+                                data=f.read(),
+                                file_name=os.path.basename(scheda_resolved),
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                    else:
+                        st.caption("📄 Nessuna scheda tecnica PDF allegata")
                 
-                if current_prod.get('descrizione_commerciale'):
+                with col_info:
+                    st.markdown(f'<div class="product-title-text">{current_prod["descrizione_articolo"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<span class="sku-badge">SKU: {current_prod["cod_art"]}</span>', unsafe_allow_html=True)
+                    
+                    # Dynamic Environment Badge Color
+                    env_class = "badge-refrigerato" if "refrigerato" in current_prod.get('ambiente_cons', '').lower() else ("badge-congelato" if "congelato" in current_prod.get('ambiente_cons', '').lower() else "badge-asciutto")
+                    
                     st.markdown(f"""
-                    <div style="background:#F8FAFC; border-left:4px solid #F59E0B; padding:10px 14px; border-radius:6px; font-size:0.9rem; color:#334155; margin-top:8px; margin-bottom:12px;">
-                        <b>Descrizione Commerciale:</b><br>{current_prod['descrizione_commerciale']}
+                    <div style="margin-bottom: 10px;">
+                        <span class="badge-pill badge-category">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
+                        <span class="badge-pill {env_class}">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
+                        <span class="badge-pill badge-shelflife">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
+                        <span class="badge-pill badge-packaging">⚖️ {current_prod.get('tipo_peso', 'N/D')}</span>
+                        <span class="badge-pill badge-packaging">📦 {current_prod.get('unita_imballi', 'N/D')}</span>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                # Action button to focus product in AI chat
-                st.write("")
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("🎯 Aggancia questo prodotto alla Chat AI", type="primary", use_container_width=True):
-                        st.session_state.chat_focused_sku = selected_sku
-                        st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
-                        st.rerun()
-                with col_btn2:
-                    if st.session_state.chat_focused_sku == selected_sku:
-                        if st.button("❌ Rimuovi focus da questo prodotto", use_container_width=True):
-                            st.session_state.chat_focused_sku = None
-                            st.toast("Focus rimosso: la Chat AI ora risponde su tutto il catalogo generale.")
-                            st.rerun()
                     
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Scheda Tecnica Preview Box
-            scheda_text = current_prod.get('scheda_text', '').strip()
-            if scheda_text:
-                with st.expander("📄 Consulta il Testo Estratto della Scheda Tecnica Ufficiale (HACCP, Ingredienti, Allergeni)"):
-                    st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=260, disabled=True)
-            elif current_prod.get('scheda_path'):
-                st.info("La scheda tecnica PDF è presente ma non contiene testo scansionabile.")
+                    # Key details grid
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        st.markdown(f"• **Unità di Misura:** `{current_prod.get('um', 'Kg')}`")
+                        st.markdown(f"• **Minimo d'Ordine:** `{current_prod.get('minimo_ordine', 'N/D')}`")
+                        st.markdown(f"• **Tempo Consegna:** `{current_prod.get('tempo_cons_gg', 'N/D')} giorni`")
+                    with col_d2:
+                        st.markdown(f"• **Stato Articolo:** `{'Attivo a Listino' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}`")
+                        if current_prod.get('prezzo_indicativo'):
+                            st.markdown(f"""
+                            <div class="price-tag-box">
+                                <div style="font-size:0.78rem; color:#047857; font-weight:600;">Listino / Contratto:</div>
+                                <div class="price-value-text">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    if current_prod.get('descrizione_commerciale'):
+                        st.markdown(f"""
+                        <div style="background:#FFFBEB; border-left:4px solid #F59E0B; padding:10px 14px; border-radius:6px; font-size:0.88rem; color:#451A03; margin-top:8px; margin-bottom:10px;">
+                            <b>Descrizione Commerciale:</b><br>{current_prod['descrizione_commerciale']}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Action button to focus product in AI chat
+                    st.write("")
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("🎯 Aggancia questo prodotto alla Chat AI", type="primary", use_container_width=True):
+                            st.session_state.chat_focused_sku = selected_sku
+                            st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
+                            st.rerun()
+                    with col_btn2:
+                        if st.session_state.chat_focused_sku == selected_sku:
+                            if st.button("❌ Rimuovi focus da questo prodotto", use_container_width=True):
+                                st.session_state.chat_focused_sku = None
+                                st.toast("Focus rimosso: la Chat AI ora risponde su tutto il catalogo generale.")
+                                st.rerun()
+                
+                # Scheda Tecnica Preview Box inside container with clean margin
+                scheda_text = current_prod.get('scheda_text', '').strip()
+                if scheda_text:
+                    st.write("")
+                    with st.expander("📄 Consulta il Testo Estratto della Scheda Tecnica Ufficiale (HACCP, Ingredienti, Allergeni)"):
+                        st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=240, disabled=True)
+                elif current_prod.get('scheda_path'):
+                    st.info("La scheda tecnica PDF è presente ma non contiene testo scansionabile.")
 
 with tab_chat:
     # Get currently focused product for chat
