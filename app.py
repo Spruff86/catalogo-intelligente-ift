@@ -292,19 +292,15 @@ if "chat_focused_sku" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Top search bar styled
-col_search1, col_search2 = st.columns([3, 1])
-with col_search1:
-    search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
-with col_search2:
-    limit_results = st.selectbox("Mostra risultati", [30, 60, 150], index=0)
+# Full-width search bar (no limit dropdown)
+search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
 
-# Fetch products based on filters and search
+# Fetch all matching products without artificial limits
 products = database.search_products(
     query=search_query,
     category=selected_category,
     storage_env=selected_env,
-    limit=limit_results
+    limit=None
 )
 
 # Tabs
@@ -314,7 +310,7 @@ with tab_catalog:
     if not products:
         st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a selezionare 'Tutte' nei filtri di categoria.")
     else:
-        st.markdown(f"🎯 Trovati **{len(products)}** articoli pertinenti:")
+        st.markdown(f"🎯 Trovati **{len(products)}** articoli disponibili:")
         
         # Product selector
         product_options = {

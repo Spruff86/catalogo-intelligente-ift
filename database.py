@@ -68,7 +68,7 @@ def get_storage_envs() -> List[str]:
     conn.close()
     return envs
 
-def search_products(query: str = "", category: str = "", storage_env: str = "", limit: int = 100) -> List[Dict[str, Any]]:
+def search_products(query: str = "", category: str = "", storage_env: str = "", limit: Optional[int] = None) -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -85,10 +85,12 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         
     clean_query = query.strip()
     
+    limit_clause = f" LIMIT {int(limit)}" if (limit and limit > 0) else ""
+    
     if not clean_query:
         where_clause = " WHERE " + " AND ".join(base_conditions) if base_conditions else ""
-        sql = f"SELECT * FROM products {where_clause} ORDER BY descrizione_articolo ASC LIMIT ?"
-        cursor.execute(sql, base_params + [limit])
+        sql = f"SELECT * FROM products {where_clause} ORDER BY descrizione_articolo ASC{limit_clause}"
+        cursor.execute(sql, base_params)
         rows = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return rows
@@ -141,13 +143,12 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
     all_conditions = base_conditions + term_conditions
     where_clause = " WHERE " + " AND ".join(all_conditions)
     
-    all_params = score_params + base_params + term_params + [limit]
+    all_params = score_params + base_params + term_params
     sql = f"""
     SELECT *, ({score_sql}) AS relevance_score
     FROM products
     {where_clause}
-    ORDER BY relevance_score DESC, descrizione_articolo ASC
-    LIMIT ?
+    ORDER BY relevance_score DESC, descrizione_articolo ASC{limit_clause}
     """
     
     cursor.execute(sql, all_params)
