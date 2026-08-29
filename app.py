@@ -443,8 +443,8 @@ with tab_chat:
         else:
             st.markdown("""
             <div class="focus-alert-general">
-                <div style="font-weight:700; font-size:1.05rem;">🌐 Modalità Generale Attiva (Tutto il Catalogo Ho.Re.Ca)</div>
-                <div style="font-size:0.85rem; color:#15803D; margin-top:2px;">Puoi chiedere consigli culinari, suggerimenti di menù o informazioni generali su qualsiasi articolo.</div>
+                <div style="font-weight:700; font-size:1.05rem;">🌐 Modalità Generale Attiva: Interrogazione su Tutto il Catalogo</div>
+                <div style="font-size:0.85rem; color:#166534; margin-top:2px;">Puoi fare qualsiasi domanda tecnica trasversale (es. <i>"Quali farine sono adatte a 40-60h di lievitazione?"</i>, <i>"Quali formaggi senza lattosio abbiamo?"</i>).</div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -460,30 +460,34 @@ with tab_chat:
     st.markdown("##### ⚡ Domande Rapide con 1 Click:")
     q_col1, q_col2, q_col3, q_col4 = st.columns(4)
     quick_prompt = None
-    with q_col1:
-        if st.button("📋 Allergeni & HACCP", use_container_width=True):
-            if focused_prod:
+    
+    if focused_prod:
+        with q_col1:
+            if st.button("📋 Allergeni & HACCP", use_container_width=True):
                 quick_prompt = f"Quali sono gli allergeni, gli ingredienti e le specifiche HACCP indicate nella scheda tecnica del prodotto {focused_prod['cod_art']} ({focused_prod['descrizione_articolo']})?"
-            else:
-                quick_prompt = "Quali sono le principali linee guida HACCP e gestione allergeni per i prodotti freschi e congelati a catalogo?"
-    with q_col2:
-        if st.button("❄️ Conservazione & Scongelamento", use_container_width=True):
-            if focused_prod:
+        with q_col2:
+            if st.button("❄️ Conservazione & Scongelamento", use_container_width=True):
                 quick_prompt = f"Quali sono le modalità di conservazione, shelf-life e le procedure ideali di scongelamento per il prodotto {focused_prod['cod_art']}?"
-            else:
-                quick_prompt = "Quali sono le procedure corrette di conservazione e catena del freddo per i prodotti HoReCa a catalogo?"
-    with q_col3:
-        if st.button("🍕 3 Idee per Pizzeria Gourmet", use_container_width=True):
-            if focused_prod:
+        with q_col3:
+            if st.button("🍕 3 Idee per Pizzeria Gourmet", use_container_width=True):
                 quick_prompt = f"Suggerisci 3 abbinamenti o ricette creative per pizza gourmet o piatti del ristorante che valorizzino {focused_prod['descrizione_articolo']}, indicando il food cost stimato."
-            else:
-                quick_prompt = "Suggerisci 3 ricette o pizze gourmet di tendenza utilizzando i migliori prodotti tipici e formaggi a catalogo."
-    with q_col4:
-        if st.button("🔥 Tendenze & Consigli Chef", use_container_width=True):
-            if focused_prod:
+        with q_col4:
+            if st.button("🔥 Tendenze & Consigli Chef", use_container_width=True):
                 quick_prompt = f"Cerca online le migliori tendenze culinarie attuali su come i grandi chef utilizzano {focused_prod['descrizione_articolo']} e consigliami tecniche di cottura moderne."
-            else:
-                quick_prompt = "Cerca online i trend gastronomici più forti di quest'anno per ristoranti e pizzerie e quali ingredienti stanno avendo maggior successo."
+    else:
+        # General Catalog Quick Prompts
+        with q_col1:
+            if st.button("🌾 Farine Lievitazione 40-60h", use_container_width=True):
+                quick_prompt = "Quali farine a catalogo sono indicate per lievitazioni e maturazioni tra 40 e 60 ore? Indicami i codici SKU, indice di forza W, contenuto proteico e consigli di impasto."
+        with q_col2:
+            if st.button("🧀 Senza Lattosio & Veg", use_container_width=True):
+                quick_prompt = "Quali formaggi e latticini a catalogo sono delattosati / senza lattosio o adatti a vegetariani? Cita codici SKU e tipologie."
+        with q_col3:
+            if st.button("🍕 Pelati e Pomodori Pizza", use_container_width=True):
+                quick_prompt = "Quali varietà di pomodori pelati, polpe e San Marzano DOP abbiamo a catalogo ideali per pizza napoletana e romana?"
+        with q_col4:
+            if st.button("🥩 Tagli Carne per CBT", use_container_width=True):
+                quick_prompt = "Quali tagli di carne bovina o suina a catalogo sono ideali per cotture a bassa temperatura (CBT) o frollature lunghe?"
 
     st.write("")
 
@@ -493,7 +497,7 @@ with tab_chat:
         with col_in1:
             form_text = st.text_input(
                 "Scrivi qui la tua domanda:",
-                placeholder="Chiedi qualsiasi cosa all'assistente AI (es. 'Come gestire la cottura?', 'Che vino abbinare?')...",
+                placeholder="Fai qualsiasi domanda tecnica sul catalogo o chiedi consigli allo Chef & Consulente...",
                 label_visibility="collapsed"
             )
         with col_in2:
@@ -530,7 +534,7 @@ with tab_chat:
                 st.markdown(prompt_to_run)
                 
             with st.chat_message("assistant", avatar="🤖"):
-                with st.spinner("L'assistente sta analizzando la scheda tecnica e preparando la consulenza culinaria..."):
+                with st.spinner("L'assistente sta analizzando il catalogo e le schede tecniche..."):
                     response_data = ai_assistant.generate_ai_response(
                         messages=st.session_state.messages,
                         current_product=focused_prod,
