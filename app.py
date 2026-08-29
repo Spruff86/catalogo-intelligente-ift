@@ -25,9 +25,14 @@ st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 
 <style>
-    /* Global Typography */
-    html, body, [class*="css"], .stMarkdown, p, span, div {
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    /* Global Typography - preserve Streamlit Material Icons */
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3 {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* Ensure Streamlit and Material icons are never overridden by custom fonts */
+    [data-testid="stIconMaterial"], .material-symbols-rounded, .material-symbols-outlined, [translate="no"], i {
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
     
     h1, h2, h3, .hero-title {
@@ -419,7 +424,7 @@ with tab_catalog:
             scheda_text = current_prod.get('scheda_text', '').strip()
             if scheda_text:
                 st.write("")
-                with st.expander("📋 Consulta il Testo Ufficiale della Scheda Tecnica (HACCP, Ingredienti, Allergeni)", expanded=False):
+                with st.expander("Consulta il Testo Ufficiale della Scheda Tecnica (HACCP, Ingredienti, Allergeni)", expanded=False):
                     st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=220, disabled=True, label_visibility="collapsed")
             elif current_prod.get('scheda_path'):
                 st.info("ℹ️ La scheda tecnica PDF è presente per il download ma non contiene testo scansionabile.")
