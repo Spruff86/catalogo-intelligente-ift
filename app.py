@@ -193,14 +193,24 @@ def resolve_file(stored_path: str, filename: str, fallback_dir: Path) -> Optiona
 if not config.DB_PATH.exists():
     database.init_db()
 
+# Helper to load company logo
+def get_company_logo_b64() -> str:
+    logo_path = Path(__file__).parent / "ift_logo.png"
+    if logo_path.exists():
+        with open(logo_path, "rb") as f:
+            return f"data:image/png;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+    return "https://www.italianfoodtrading.com/wp-content/uploads/2025/03/logo-header.png"
+
+company_logo_b64 = get_company_logo_b64()
+
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
-    st.markdown("""
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-        <img src="https://img.icons8.com/fluency/96/restaurant-menu.png" width="46" style="border-radius: 10px;">
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; background: #FFFFFF; padding: 10px 12px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+        <img src="{company_logo_b64}" style="height: 36px; width: auto; object-fit: contain;">
         <div>
-            <div style="font-weight: 800; font-size: 1.15rem; color: #0F172A; line-height: 1.1;">Catalogo HoReCa</div>
-            <div style="font-size: 0.8rem; color: #64748B;">Italian Food Distribution</div>
+            <div style="font-weight: 800; font-size: 1.05rem; color: #0F172A; line-height: 1.1;">Italian Food Trading</div>
+            <div style="font-size: 0.78rem; color: #64748B;">S.r.l. — Verona</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -275,8 +285,17 @@ with st.sidebar:
 # --- HERO HEADER BANNER ---
 st.markdown(f"""
 <div class="hero-banner">
-    <div class="hero-title">🍴 Catalogo Intelligente & Assistente Ho.Re.Ca</div>
-    <div class="hero-subtitle">Consulenza Tecnica Certificata da Schede Ufficiali • Ricette Gourmet & Tendenze di Mercato con AI</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div>
+            <div class="hero-title" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                <span>🍴 Catalogo Intelligente Ho.Re.Ca.</span>
+                <span style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.95); padding: 4px 12px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.12);">
+                    <img src="{company_logo_b64}" alt="Italian Food Trading S.r.l. Verona" style="height: 34px; width: auto; object-fit: contain;">
+                </span>
+            </div>
+            <div class="hero-subtitle">Italian Food Trading S.r.l. (Verona) • Consulenza Tecnica Certificata & Assistente AI Ho.Re.Ca</div>
+        </div>
+    </div>
     <div class="hero-stats-row">
         <div class="hero-pill">📦 {stats['total_products']:,} Articoli a Catalogo</div>
         <div class="hero-pill">📸 {stats['with_foto']:,} Foto HD</div>
