@@ -1576,7 +1576,7 @@ with tab_compare:
                     current_product=None,
                     api_key=user_api_key if user_api_key else env_api_key,
                     model_name=model_choice,
-                    enable_web_search=enable_grounding
+                    enable_web_search=enable_web_search
                 )
                 st.session_state.compare_ai_analysis = analysis_res["text"]
                 st.rerun()
