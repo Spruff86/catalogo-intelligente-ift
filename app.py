@@ -818,6 +818,30 @@ with tab_quote:
                 "notes": notes
             }
             
+            # Generate Default Message Text
+            default_wa_text = quote_generator.generate_whatsapp_message(quote_payload)
+            
+            # Editable WhatsApp Section
+            st.write("")
+            with st.expander("💬 Personalizza / Copia Messaggio WhatsApp", expanded=True):
+                st.caption("Puoi modificare liberamente il testo qui sotto (es. aggiungere saluti o note particolari) prima di inviarlo o copiarlo.")
+                edited_wa_text = st.text_area(
+                    "Testo Messaggio WhatsApp (Modificabile & Copiabile)", 
+                    value=default_wa_text,
+                    height=220,
+                    key="wa_message_editor",
+                    help="Modifica il testo come preferisci: il pulsante 'Invia su WhatsApp' userà la tua versione modificata."
+                )
+                
+                # 1-Click Copy Box
+                st.markdown("**📋 Testo pronto per copia rapida:**")
+                st.code(edited_wa_text, language="markdown")
+
+            # Build URL using the edited text
+            clean_phone = "".join(filter(str.isdigit, cust_phone))
+            encoded_text = urllib.parse.quote(edited_wa_text)
+            wa_url = f"https://wa.me/{clean_phone}?text={encoded_text}" if clean_phone else f"https://wa.me/?text={encoded_text}"
+
             btn_pdf_col, btn_wa_col, btn_clr_col = st.columns([1.5, 1.5, 1])
             
             with btn_pdf_col:
@@ -836,20 +860,10 @@ with tab_quote:
                     st.error(f"Errore generazione PDF: {e}")
                     
             with btn_wa_col:
-                wa_url = quote_generator.get_whatsapp_url(quote_payload, phone_number=cust_phone)
-                st.link_button("💬 Invia su WhatsApp", url=wa_url, use_container_width=True)
+                st.link_button("📲 Invia su WhatsApp", url=wa_url, use_container_width=True)
                 
             with btn_clr_col:
                 if st.button("🗑️ Svuota Tutto", use_container_width=True):
                     st.session_state.quote_items = []
                     st.toast("Preventivo svuotato!")
                     st.rerun()
-
-            # Preview WhatsApp Text
-            with st.expander("👁️ Anteprima Messaggio WhatsApp Formattato", expanded=False):
-                st.text_area(
-                    "Testo WhatsApp", 
-                    value=quote_generator.generate_whatsapp_message(quote_payload),
-                    height=200, 
-                    disabled=True
-                )
