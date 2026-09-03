@@ -16,7 +16,8 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
 ## 🏗️ Architettura del Codebase
 
 ```text
-├── app.py                     # Frontend Streamlit: UI moderna, Hero banner, Product card, Chat studio AI, Preventivi
+├── app.py                     # Frontend Streamlit: UI moderna, Hero banner, Product card, Chat studio AI, Preventivi, Food Cost
+├── food_cost_calculator.py    # Motore Food Cost: Calcolo costi porzione, margini lordi, conversioni U.M., template ricette
 ├── quote_generator.py         # Motore ReportLab: Generatore Preventivi PDF aziendali IFT & export WhatsApp
 ├── database.py                # Database SQLite, FTS5, stemming morfologico italiano, ranking pertinenza
 ├── ai_assistant.py            # RAG Engine, integrazione Gemini (3.6/2.5 Flash), failover e rate-limit handler
@@ -41,8 +42,13 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
 
 ## 📋 Specifiche dei Moduli e Flussi Dati
 
-### 1. `quote_generator.py`
-- **Motore PDF Vettoriale**: Generazione tramite `reportlab` in memoria (`io.BytesIO`) con layout aziendale IFT (Navy/Oro), logo ufficiale, box anagrafica cliente, tabella articoli con formattazione automatica dei testi, totali/IVA e riquadro firme.
+### 1. `food_cost_calculator.py`
+- **Ingegneria del Menu**: Calcolo del Food Cost netto per porzione, incidenza percentuale, prezzo a menu raccomandato con target configurabile e margine lordo di contribuzione.
+- **Conversioni Unità**: Riconoscimento automatico grammature ($g \to Kg$, $ml \to L$, $Pz \to Pz$).
+- **Integrazione Preventivo**: Travaso automatico dei fabbisogni ricetta per lotti di produzione (es. 50-100 coperti) nel carrello commerciale.
+
+### 2. `quote_generator.py`
+- **Motore PDF Vettoriale**: Generazione tramite `reportlab` in memoria (`io.BytesIO`) con layout aziendale IFT (Navy/Oro), logo ufficiale, box anagrafica cliente, tabella articoli con formattazione automatica dei testi e riquadro firme.
 - **Integrazione WhatsApp**: Funzione `generate_whatsapp_message()` e `get_whatsapp_url()` per comporre e inviare con un click preventivi pre-formattati con codici SKU, quantità e prezzi.
 
 ### 1. `database.py`

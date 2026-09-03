@@ -10,6 +10,7 @@ import config
 import database
 import ai_assistant
 import quote_generator
+import food_cost_calculator
 import urllib.parse
 
 # Page configuration
@@ -166,6 +167,21 @@ st.markdown("""
         margin-bottom: 16px;
     }
 
+    /* Food Cost Metric Card Styling */
+    .fc-metric-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .fc-metric-val {
+        font-size: 1.45rem;
+        font-weight: 800;
+        margin-top: 2px;
+    }
+
     /* Quotation Summary Box */
     .quote-total-box {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
@@ -250,10 +266,26 @@ if "quote_customer" not in st.session_state:
         "phone_email": "",
         "agent_name": "Agente Italian Food Trading",
         "iva_rate": 10.0,
-        "notes": "Resa franco destino. Pagamento come da accordi commerciali.",
+        "notes": "Resa franco destino. Pagamento come da accordi commerciali. Merce soggetta a disponibilità. Fatturazione al peso effettivo alla consegna.",
         "validity": "30 giorni",
         "doc_number": f"PREV-{datetime.now().strftime('%Y%m%d')}-01"
     }
+
+# Food Cost Session State
+if "recipe_name" not in st.session_state:
+    st.session_state.recipe_name = "Pizza Gourmet Orazio alla Brace & Burrata"
+if "recipe_category" not in st.session_state:
+    st.session_state.recipe_category = "Pizzeria Gourmet"
+if "recipe_portions" not in st.session_state:
+    st.session_state.recipe_portions = 1
+if "recipe_target_pct" not in st.session_state:
+    st.session_state.recipe_target_pct = 28.0
+if "recipe_actual_price" not in st.session_state:
+    st.session_state.recipe_actual_price = 13.50
+if "recipe_ingredients" not in st.session_state:
+    st.session_state.recipe_ingredients = [
+        dict(x) for x in food_cost_calculator.RECIPE_TEMPLATES["🌟 Pizza Gourmet Orazio alla Brace & Burrata"]["ingredients"]
+    ]
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -372,7 +404,12 @@ products = database.search_products(
 # Tabs Definition
 quote_count = len(st.session_state.quote_items)
 quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
-tab_catalog, tab_chat, tab_quote = st.tabs(["📦 Scheda Prodotto & Catalogo", "🤖 Studio Consulenza & Chat AI", quote_tab_label])
+tab_catalog, tab_chat, tab_quote, tab_foodcost = st.tabs([
+    "📦 Scheda Prodotto & Catalogo", 
+    "🤖 Studio Consulenza & Chat AI", 
+    quote_tab_label,
+    "📊 Calcolatore Food Cost"
+])
 
 # =========================================================================
 # TAB 1: SCHEDA PRODOTTO & CATALOGO
@@ -868,3 +905,358 @@ with tab_quote:
                     st.session_state.quote_items = []
                     st.toast("Preventivo svuotato!")
                     st.rerun()
+
+# =========================================================================
+# TAB 4: CALCOLATORE DI FOOD COST & INGEGNERIA DEL MENU
+# =========================================================================
+with tab_foodcost:
+    st.markdown("### 📊 Calcolatore di Food Cost & Ingegneria del Menu")
+    st.caption("Componi ricette con i prodotti reali del catalogo IFT, analizza il costo per porzione, simula i margini di profitto lordo e travasa gli ingredienti nel preventivo.")
+    
+    # -------------------------------------------------------------
+    # 1. TEMPLATE SELECTION BAR
+    # -------------------------------------------------------------
+    with st.container(border=True):
+        tpl_col1, tpl_col2 = st.columns([3, 1.2])
+        with tpl_col1:
+            template_options = ["-- Seleziona o mantieni ricetta corrente --"] + list(food_cost_calculator.RECIPE_TEMPLATES.keys())
+            chosen_tpl = st.selectbox(
+                "⚡ Carica una Ricetta Iconica Preimpostata:",
+                options=template_options,
+                index=0
+            )
+        with tpl_col2:
+            st.write("")
+            st.write("")
+            if chosen_tpl != "-- Seleziona o mantieni ricetta corrente --":
+                if st.button("📥 Carica Ricetta", use_container_width=True, type="primary"):
+                    tpl_data = food_cost_calculator.RECIPE_TEMPLATES[chosen_tpl]
+                    st.session_state.recipe_name = tpl_data["name"]
+                    st.session_state.recipe_category = tpl_data["category"]
+                    st.session_state.recipe_portions = tpl_data["portions"]
+                    st.session_state.recipe_target_pct = tpl_data["target_pct"]
+                    st.session_state.recipe_actual_price = tpl_data["actual_price"]
+                    st.session_state.recipe_ingredients = [dict(x) for x in tpl_data["ingredients"]]
+                    st.toast(f"Caricata ricetta: {tpl_data['name']}!")
+                    st.rerun()
+
+    # -------------------------------------------------------------
+    # 2. RECIPE CONFIGURATION & FINANCIAL PARAMETERS
+    # -------------------------------------------------------------
+    with st.container(border=True):
+        st.markdown("##### 🍽️ Dettagli Piatto & Parametri Economici")
+        c_r1, c_r2, c_r3, c_r4, c_r5 = st.columns([3.2, 2.0, 1.2, 1.8, 1.8])
+        
+        with c_r1:
+            st.session_state.recipe_name = st.text_input(
+                "Nome Ricetta / Piatto", 
+                value=st.session_state.recipe_name
+            )
+        with c_r2:
+            cat_list = ["Pizzeria Gourmet", "Pizzeria Classica", "Primi Piatti", "Secondi Piatti", "Antipasti & Taglieri", "Bistrot & Panini", "Dessert"]
+            current_cat_idx = cat_list.index(st.session_state.recipe_category) if st.session_state.recipe_category in cat_list else 0
+            st.session_state.recipe_category = st.selectbox(
+                "Categoria Portata", 
+                options=cat_list,
+                index=current_cat_idx
+            )
+        with c_r3:
+            st.session_state.recipe_portions = st.number_input(
+                "Resa (Porzioni)", 
+                min_value=1, 
+                value=int(st.session_state.recipe_portions), 
+                step=1
+            )
+        with c_r4:
+            st.session_state.recipe_target_pct = st.number_input(
+                "Target Food Cost %", 
+                min_value=10.0, 
+                max_value=60.0, 
+                value=float(st.session_state.recipe_target_pct), 
+                step=1.0, 
+                format="%.1f",
+                help="Lo standard ideale nella ristorazione/pizzeria è tra il 25% e il 30%."
+            )
+        with c_r5:
+            st.session_state.recipe_actual_price = st.number_input(
+                "Prezzo Menu (€ IVA 10% inc.)", 
+                min_value=0.5, 
+                value=float(st.session_state.recipe_actual_price), 
+                step=0.50, 
+                format="%.2f",
+                help="Prezzo di vendita al pubblico sul menu del ristorante o pizzeria."
+            )
+
+    # Calculate Recipe Financial Summary
+    summary = food_cost_calculator.calculate_recipe_summary(
+        ingredients=st.session_state.recipe_ingredients,
+        target_food_cost_pct=st.session_state.recipe_target_pct,
+        actual_selling_price_gross=st.session_state.recipe_actual_price,
+        vat_rate=10.0,
+        portions=st.session_state.recipe_portions
+    )
+
+    # -------------------------------------------------------------
+    # 3. KPI METRICS DASHBOARD
+    # -------------------------------------------------------------
+    st.write("")
+    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+    
+    with m_col1:
+        st.markdown(f"""
+        <div class="fc-metric-card" style="border-left: 5px solid #0F172A;">
+            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Food Cost / Porzione</div>
+            <div class="fc-metric-val" style="color:#0F172A;">€ {summary['food_cost_per_portion']:.2f}</div>
+            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Totale Ricetta: <b>€ {summary['total_recipe_cost']:.2f}</b></div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with m_col2:
+        st.markdown(f"""
+        <div class="fc-metric-card" style="border-left: 5px solid #2563EB;">
+            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Prezzo Menu Consigliato</div>
+            <div class="fc-metric-val" style="color:#2563EB;">€ {summary['recommended_selling_price_gross']:.2f}</div>
+            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Target <b>{summary['target_food_cost_pct']:g}%</b> (IVA 10% inc.)</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with m_col3:
+        st.markdown(f"""
+        <div class="fc-metric-card" style="border-left: 5px solid #16A34A;">
+            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Margine Lordo / Piatto</div>
+            <div class="fc-metric-val" style="color:#16A34A;">€ {summary['gross_margin_per_portion']:.2f}</div>
+            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Netto IVA: <b>€ {summary['actual_selling_price_net']:.2f}</b></div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with m_col4:
+        st.markdown(f"""
+        <div class="fc-metric-card" style="border-left: 5px solid {summary['status_color']};">
+            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Food Cost % Reale</div>
+            <div class="fc-metric-val" style="color:{summary['status_color']};">{summary['actual_food_cost_pct']:.1f}%</div>
+            <div style="font-size:0.75rem; font-weight:600; color:{summary['status_color']}; margin-top:2px;">{summary['status_label']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------
+    # 4. INGREDIENTS LIST & LIVE BREAKDOWN
+    # -------------------------------------------------------------
+    st.write("")
+    st.markdown(f"##### 📋 Distinta Base Ingredienti ({len(st.session_state.recipe_ingredients)} componenti):")
+    
+    ingredients_to_delete = []
+    
+    for idx, ing in enumerate(st.session_state.recipe_ingredients):
+        with st.container(border=True):
+            r_col_ing, r_col_qty, r_col_um, r_col_prc, r_col_tot, r_col_del = st.columns([3.6, 1.2, 1.1, 1.4, 1.8, 0.6])
+            
+            with r_col_ing:
+                sku_txt = f"`{ing['cod_art']}` " if ing.get('cod_art') else ""
+                st.markdown(f"<b>{sku_txt}{ing['name']}</b>", unsafe_allow_html=True)
+                
+            with r_col_qty:
+                new_q = st.number_input(
+                    "Dosaggio",
+                    min_value=0.01,
+                    value=float(ing.get("quantity", 100)),
+                    step=10.0 if str(ing.get("unit", "g")).lower() in ["g", "ml"] else 1.0,
+                    key=f"ing_q_{idx}"
+                )
+                ing["quantity"] = new_q
+                
+            with r_col_um:
+                units_list = ["g", "Kg", "ml", "L", "Pz", "etto", "fetta"]
+                current_u_idx = units_list.index(ing.get("unit", "g")) if ing.get("unit", "g") in units_list else 0
+                new_u = st.selectbox(
+                    "Unità",
+                    options=units_list,
+                    index=current_u_idx,
+                    key=f"ing_u_{idx}"
+                )
+                ing["unit"] = new_u
+                
+            with r_col_prc:
+                price_um = ing.get("price_um", "Kg")
+                new_p = st.number_input(
+                    f"Prezzo (€/{price_um})",
+                    min_value=0.0,
+                    value=float(ing.get("unit_price", 0.0)),
+                    step=0.50,
+                    format="%.2f",
+                    key=f"ing_p_{idx}"
+                )
+                ing["unit_price"] = new_p
+                
+            # Calculate row cost
+            row_cost = food_cost_calculator.calculate_ingredient_cost(new_q, new_u, new_p, price_um)
+            row_pct = (row_cost / summary["total_recipe_cost"] * 100.0) if summary["total_recipe_cost"] > 0 else 0.0
+            
+            with r_col_tot:
+                st.write("")
+                st.markdown(f"<div style='font-size:1.05rem; font-weight:800; color:#0F172A; text-align:right;'>€ {row_cost:.2f} <span style='font-size:0.75rem; font-weight:600; color:#64748B;'>({row_pct:.1f}%)</span></div>", unsafe_allow_html=True)
+                st.progress(min(1.0, max(0.0, row_pct / 100.0)))
+                
+            with r_col_del:
+                st.write("")
+                if st.button("🗑️", key=f"del_ing_{idx}", help="Rimuovi ingrediente"):
+                    ingredients_to_delete.append(idx)
+
+    if ingredients_to_delete:
+        for del_i in sorted(ingredients_to_delete, reverse=True):
+            st.session_state.recipe_ingredients.pop(del_i)
+        st.rerun()
+
+    # -------------------------------------------------------------
+    # 5. ADD INGREDIENT FROM IFT CATALOG
+    # -------------------------------------------------------------
+    st.write("")
+    with st.expander("➕ Aggiungi un Nuovo Ingrediente dal Catalogo IFT", expanded=False):
+        st.markdown("Seleziona una delle **2.003 referenze IFT a listino** con il suo *Prezzo Soglia* ufficiale precaricato:")
+        
+        all_catalog_prods = database.get_all_products_basic()
+        prod_options = ["-- Seleziona Prodotto a Catalogo --"] + [
+            f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+            for p in all_catalog_prods
+        ]
+        
+        add_col_prod, add_col_qty, add_col_um, add_col_btn = st.columns([3.5, 1.2, 1.1, 1.5])
+        
+        with add_col_prod:
+            chosen_cat_prod = st.selectbox("Cerca o Seleziona Prodotto IFT", options=prod_options, index=0)
+            
+        with add_col_qty:
+            add_ing_qty = st.number_input("Dosaggio", min_value=0.01, value=100.0, step=10.0, key="add_cat_qty")
+            
+        with add_col_um:
+            add_ing_um = st.selectbox("Unità Misura", options=["g", "Kg", "ml", "L", "Pz", "etto", "fetta"], index=0, key="add_cat_um")
+            
+        with add_col_btn:
+            st.write("")
+            st.write("")
+            if st.button("➕ Inserisci in Ricetta", use_container_width=True, key="btn_add_to_recipe"):
+                if chosen_cat_prod != "-- Seleziona Prodotto a Catalogo --":
+                    sku_part = chosen_cat_prod.split(" — ")[0].strip()
+                    matched_prod = database.get_product_by_code(sku_part)
+                    if matched_prod:
+                        st.session_state.recipe_ingredients.append({
+                            "cod_art": matched_prod["cod_art"],
+                            "name": matched_prod["descrizione_articolo"],
+                            "quantity": add_ing_qty,
+                            "unit": add_ing_um,
+                            "unit_price": float(matched_prod.get("prezzo_soglia", 0.0) or 0.0),
+                            "price_um": matched_prod.get("um", "Kg")
+                        })
+                        st.toast(f"✅ Inserito {matched_prod['cod_art']} nella ricetta!")
+                        st.rerun()
+                else:
+                    st.warning("Seleziona prima un prodotto dal menu a tendina.")
+
+    # -------------------------------------------------------------
+    # 6. MONTHLY PROFIT SIMULATOR
+    # -------------------------------------------------------------
+    st.write("")
+    with st.container(border=True):
+        st.markdown("##### 📈 Simulatore di Redditività & Profitto Mensile")
+        st.caption("Stima il volume di vendite per questo piatto e visualizza il margine lordo generato per il locale:")
+        
+        sim_col_slider, sim_col_res1, sim_col_res2 = st.columns([2.5, 1.5, 1.5])
+        
+        with sim_col_slider:
+            daily_portions = st.slider(
+                "Porzioni / Coperti venduti al giorno:",
+                min_value=5,
+                max_value=200,
+                value=30,
+                step=5
+            )
+            days_open = st.number_input("Giorni di apertura al mese:", min_value=1, max_value=31, value=26, step=1)
+            
+        monthly_portions = daily_portions * days_open
+        monthly_revenue = monthly_portions * summary["actual_selling_price_net"]
+        monthly_profit = monthly_portions * summary["gross_margin_per_portion"]
+        
+        with sim_col_res1:
+            st.markdown(f"""
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:12px; border-radius:10px; text-align:center;">
+                <div style="font-size:0.78rem; color:#64748B; font-weight:700;">INCASSO MENSILE NETTO</div>
+                <div style="font-size:1.35rem; font-weight:800; color:#0F172A; margin-top:4px;">€ {monthly_revenue:,.2f}</div>
+                <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">su {monthly_portions} piatti/mese</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with sim_col_res2:
+            st.markdown(f"""
+            <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:10px; text-align:center;">
+                <div style="font-size:0.78rem; color:#166534; font-weight:700;">PROFITTO LORDO MENSILE</div>
+                <div style="font-size:1.35rem; font-weight:800; color:#15803D; margin-top:4px;">€ {monthly_profit:,.2f}</div>
+                <div style="font-size:0.75rem; color:#166534; margin-top:2px;">Margine vivo d'esercizio</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------
+    # 7. STRATEGIC ACTIONS (QUOTE INTEGRATION & AI OPTIMIZER)
+    # -------------------------------------------------------------
+    st.write("")
+    st.markdown("##### 🚀 Azioni Strategiche:")
+    
+    act_col1, act_col2, act_col3 = st.columns([1.8, 1.8, 1.0])
+    
+    with act_col1:
+        with st.popover("🛒 Travasa Ingredienti nel Preventivo", use_container_width=True):
+            st.markdown("**Aggiungi al Preventivo Commerciale (Tab 3)**")
+            st.caption("Calcola il fabbisogno all'ingrosso per un lotto di produzione:")
+            batch_count = st.number_input("Quante porzioni desideri preventivare?", min_value=1, value=50, step=10)
+            
+            if st.button(f"➕ Aggiungi Lotti per {batch_count} Piatti al Preventivo", type="primary", use_container_width=True):
+                added_count = 0
+                for item in st.session_state.recipe_ingredients:
+                    sku = item.get("cod_art")
+                    if sku and sku != "EXTRA":
+                        # Convert recipe quantity to catalog unit
+                        r_q = float(item.get("quantity", 0)) * batch_count
+                        r_u = str(item.get("unit", "g")).lower()
+                        p_um = str(item.get("price_um", "Kg")).lower()
+                        
+                        calc_bulk_qty = r_q
+                        if p_um == "kg" and r_u in ["g", "gr"]:
+                            calc_bulk_qty = r_q / 1000.0
+                        elif p_um == "l" and r_u in ["ml", "cc"]:
+                            calc_bulk_qty = r_q / 1000.0
+                            
+                        # Add to quote session state
+                        existing = next((q for q in st.session_state.quote_items if q["cod_art"] == sku), None)
+                        if existing:
+                            existing["quantita"] += calc_bulk_qty
+                        else:
+                            st.session_state.quote_items.append({
+                                "cod_art": sku,
+                                "descrizione_articolo": item.get("name", ""),
+                                "unita_imballi": "",
+                                "um": item.get("price_um", "Kg"),
+                                "quantita": round(calc_bulk_qty, 2),
+                                "prezzo_unitario": float(item.get("unit_price", 0.0))
+                            })
+                        added_count += 1
+                        
+                st.toast(f"✅ Travasati {added_count} articoli nel preventivo commerciale per {batch_count} porzioni!")
+                st.rerun()
+                
+    with act_col2:
+        if st.button("🤖 Chiedi all'AI di Ottimizzare il Food Cost", use_container_width=True):
+            # Formulate structured prompt for Gemini
+            recipe_items_desc = ", ".join([f"{i['name']} ({i['quantity']} {i['unit']})" for i in st.session_state.recipe_ingredients])
+            prompt_ai = (
+                f"Analizza il Food Cost per la ricetta '{st.session_state.recipe_name}' ({st.session_state.recipe_category}):\n"
+                f"- Costo ingredienti per porzione: € {summary['food_cost_per_portion']:.2f}\n"
+                f"- Prezzo di vendita a menu: € {summary['actual_selling_price_gross']:.2f} (Food Cost: {summary['actual_food_cost_pct']:.1f}%)\n"
+                f"- Ingredienti attuali: {recipe_items_desc}\n\n"
+                f"Suggeriscimi strategie gastronomiche e alternative di prodotti dal catalogo Italian Food Trading S.r.l. per ottimizzare il Food Cost, ridurre gli sprechi e aumentare la marginalità lorda per il ristoratore."
+            )
+            st.session_state.messages.append({"role": "user", "content": prompt_ai})
+            st.toast("Richiesta inviata all'Assistente AI! Apri il Tab 2 per consultare i consigli dello chef AI.")
+            
+    with act_col3:
+        if st.button("🗑️ Svuota Ricetta", use_container_width=True):
+            st.session_state.recipe_ingredients = []
+            st.toast("Ricetta svuotata!")
+            st.rerun()
