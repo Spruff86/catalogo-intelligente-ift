@@ -10,6 +10,7 @@ import config
 import database
 import ai_assistant
 import quote_generator
+import urllib.parse
 
 # Page configuration
 st.set_page_config(
