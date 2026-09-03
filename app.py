@@ -854,16 +854,32 @@ with tab_quote:
                 "notes": notes
             }
             
-            # Generate Default Message Text
+            # Generate Default Message Text from all current items
             default_wa_text = quote_generator.generate_whatsapp_message(quote_payload)
+            
+            # Auto-sync WhatsApp text whenever quote items or customer data change
+            current_quote_sig = f"{len(st.session_state.quote_items)}|" + "|".join([
+                f"{i.get('cod_art')}:{i.get('quantita')}:{i.get('prezzo_unitario')}" for i in st.session_state.quote_items
+            ]) + f"|{cust_name}|{agent_name}|{doc_num}"
+            
+            if st.session_state.get("last_wa_quote_sig") != current_quote_sig:
+                st.session_state.last_wa_quote_sig = current_quote_sig
+                st.session_state["wa_message_editor"] = default_wa_text
             
             # Editable WhatsApp Section
             st.write("")
             with st.expander("💬 Personalizza / Copia Messaggio WhatsApp", expanded=True):
-                st.caption("Puoi modificare liberamente il testo qui sotto (es. aggiungere saluti o note particolari) prima di inviarlo o copiarlo.")
+                wa_head_col, wa_regen_col = st.columns([3, 1.2])
+                with wa_head_col:
+                    st.caption("Puoi modificare liberamente il testo qui sotto (es. aggiungere saluti o note particolari) prima di inviarlo o copiarlo.")
+                with wa_regen_col:
+                    if st.button("🔄 Rigenera Testo", help="Ricarica il testo automatico con tutti gli articoli attuali", use_container_width=True):
+                        st.session_state["wa_message_editor"] = default_wa_text
+                        st.rerun()
+                        
                 edited_wa_text = st.text_area(
                     "Testo Messaggio WhatsApp (Modificabile & Copiabile)", 
-                    value=default_wa_text,
+                    value=st.session_state.get("wa_message_editor", default_wa_text),
                     height=220,
                     key="wa_message_editor",
                     help="Modifica il testo come preferisci: il pulsante 'Invia su WhatsApp' userà la tua versione modificata."
@@ -901,6 +917,10 @@ with tab_quote:
             with btn_clr_col:
                 if st.button("🗑️ Svuota Tutto", use_container_width=True):
                     st.session_state.quote_items = []
+                    if "wa_message_editor" in st.session_state:
+                        del st.session_state["wa_message_editor"]
+                    if "last_wa_quote_sig" in st.session_state:
+                        del st.session_state["last_wa_quote_sig"]
                     st.toast("Preventivo svuotato!")
                     st.rerun()
 
