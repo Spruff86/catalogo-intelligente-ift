@@ -28,6 +28,7 @@ def init_db():
         minimo_ordine TEXT,
         descrizione_commerciale TEXT,
         prezzo_indicativo TEXT,
+        prezzo_contratto TEXT,
         art_attivo TEXT,
         foto_filename TEXT,
         foto_path TEXT,
@@ -36,6 +37,12 @@ def init_db():
         scheda_text TEXT
     )
     """)
+    
+    # Check if prezzo_contratto column exists (for migrations)
+    cursor.execute("PRAGMA table_info(products)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if "prezzo_contratto" not in cols:
+        cursor.execute("ALTER TABLE products ADD COLUMN prezzo_contratto TEXT")
     
     # Create FTS5 virtual table for full text search
     cursor.execute("""
@@ -52,6 +59,22 @@ def init_db():
     
     conn.commit()
     conn.close()
+
+def format_disguised_contract_code(price: Any) -> str:
+    """
+    Camouflages a contract price as a discrete technical lot / reference code (e.g., € 6.50 -> Ref. #0650#).
+    """
+    if price is None:
+        return ""
+    try:
+        clean = str(price).replace("€", "").replace(",", ".").strip()
+        val = float(clean)
+        if val <= 0:
+            return ""
+        cents = int(round(val * 100))
+        return f"Ref. #{cents:04d}#"
+    except (ValueError, TypeError):
+        return ""
 
 def get_categories() -> List[str]:
     conn = get_connection()
@@ -311,7 +334,7 @@ def get_all_products_basic() -> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT cod_art, descrizione_articolo, um, prezzo_indicativo 
+        SELECT cod_art, descrizione_articolo, um, prezzo_indicativo, prezzo_contratto 
         FROM products 
         ORDER BY cod_art ASC
     """)
@@ -325,10 +348,18 @@ def get_all_products_basic() -> List[Dict[str, Any]]:
             p_val = float(p_str)
         except (ValueError, TypeError):
             p_val = 0.0
+            
+        c_str = str(r["prezzo_contratto"] or "0").replace("€", "").replace(",", ".").strip()
+        try:
+            c_val = float(c_str)
+        except (ValueError, TypeError):
+            c_val = 0.0
+            
         items.append({
             "cod_art": r["cod_art"],
             "descrizione_articolo": r["descrizione_articolo"],
             "um": r["um"] or "Kg",
-            "prezzo_soglia": p_val
+            "prezzo_soglia": p_val,
+            "prezzo_contratto": c_val
         })
     return items

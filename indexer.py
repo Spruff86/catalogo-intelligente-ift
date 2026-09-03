@@ -119,8 +119,10 @@ def run_indexing():
         minimo_ordine = get_val(row, "Minimo_ordine") or get_val(row, "Minimum_order")
         descrizione_commerciale = get_val(row, "Descrizione Commerciale") or get_val(row, "Commercial_Description")
         
-        # Priority: Prezzo Soglia -> Obiettivo -> Contratto
+        # Official selling price: Prezzo Soglia
         prezzo_indicativo = get_val(row, "Soglia") or get_val(row, "Obiettivo") or get_val(row, "Contratto") or get_val(row, "Prz_BP")
+        # Internal reference price: Prezzo Contratto
+        prezzo_contratto = get_val(row, "Contratto") or get_val(row, "Prz_BP") or get_val(row, "Soglia")
         art_attivo = get_val(row, "Art_Attivo", "Y")
         
         # Match Photo
@@ -158,6 +160,7 @@ def run_indexing():
             minimo_ordine,
             descrizione_commerciale,
             prezzo_indicativo,
+            prezzo_contratto,
             art_attivo,
             foto_filename,
             foto_path,
@@ -181,13 +184,14 @@ def run_indexing():
         minimo_ordine,
         descrizione_commerciale,
         prezzo_indicativo,
+        prezzo_contratto,
         art_attivo,
         foto_filename,
         foto_path,
         scheda_filename,
         scheda_path,
         scheda_text
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, products_to_insert)
     
     # Populate FTS
