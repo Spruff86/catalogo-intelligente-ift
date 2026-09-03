@@ -305,3 +305,30 @@ def get_catalog_stats() -> Dict[str, Any]:
         "with_scheda": with_scheda,
         "with_text": with_text
     }
+
+def get_all_products_basic() -> List[Dict[str, Any]]:
+    """Returns a lightweight list of all products for dropdowns and recipe selectors."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT cod_art, descrizione_articolo, um, prezzo_indicativo 
+        FROM products 
+        ORDER BY cod_art ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    items = []
+    for r in rows:
+        p_str = str(r["prezzo_indicativo"] or "0").replace("€", "").replace(",", ".").strip()
+        try:
+            p_val = float(p_str)
+        except (ValueError, TypeError):
+            p_val = 0.0
+        items.append({
+            "cod_art": r["cod_art"],
+            "descrizione_articolo": r["descrizione_articolo"],
+            "um": r["um"] or "Kg",
+            "prezzo_soglia": p_val
+        })
+    return items
