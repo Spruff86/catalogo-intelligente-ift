@@ -25,8 +25,25 @@ st.markdown("""
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    html, body, [class*="st-emotion-cache"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+    html, body {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    /* Preserve Streamlit Material Icons ligatures */
+    span[data-testid="stIconMaterial"], 
+    [class*="material-icons"], 
+    [class*="MaterialSymbols"], 
+    .material-symbols-rounded, 
+    .material-symbols-outlined,
+    [data-baseweb="icon"] {
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons', sans-serif !important;
+        speak: none;
+        font-style: normal;
+        font-weight: normal;
+        font-variant: normal;
+        text-transform: none;
+        line-height: 1;
+        -webkit-font-smoothing: antialiased;
     }
     
     /* Top Hero Banner */
