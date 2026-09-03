@@ -287,6 +287,12 @@ if "recipe_ingredients" not in st.session_state:
         dict(x) for x in food_cost_calculator.RECIPE_TEMPLATES["🌟 Pizza Gourmet Orazio alla Brace & Burrata"]["ingredients"]
     ]
 
+# Product Comparison Session State
+if "compare_skus" not in st.session_state:
+    st.session_state.compare_skus = ["A110419QU", "A110414QU"]
+if "compare_ai_analysis" not in st.session_state:
+    st.session_state.compare_ai_analysis = None
+
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
     st.markdown(f"""
@@ -404,11 +410,16 @@ products = database.search_products(
 # Tabs Definition
 quote_count = len(st.session_state.quote_items)
 quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
-tab_catalog, tab_chat, tab_quote, tab_foodcost = st.tabs([
+
+compare_count = len(st.session_state.compare_skus)
+compare_tab_label = f"⚖️ Confronto ({compare_count})" if compare_count > 0 else "⚖️ Confronto Prodotti"
+
+tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_compare = st.tabs([
     "📦 Scheda Prodotto & Catalogo", 
     "🤖 Studio Consulenza & Chat AI", 
     quote_tab_label,
-    "📊 Calcolatore Food Cost"
+    "📊 Calcolatore Food Cost",
+    compare_tab_label
 ])
 
 # =========================================================================
@@ -497,32 +508,48 @@ with tab_catalog:
                     
                     # Action buttons in single clean row
                     st.write("")
-                    btn_col1, btn_col2 = st.columns([1, 1])
+                    btn_col1, btn_col2, btn_col3 = st.columns([1, 1.2, 1])
                     with btn_col1:
                         if st.session_state.chat_focused_sku == selected_sku:
-                            if st.button("❌ Rimuovi focus AI", use_container_width=True):
+                            if st.button("❌ Sgancia AI", use_container_width=True):
                                 st.session_state.chat_focused_sku = None
                                 st.toast("Focus rimosso! Passato al catalogo generale.")
                                 st.rerun()
                         else:
-                            if st.button("🎯 Aggancia alla Chat AI", type="primary", use_container_width=True):
+                            if st.button("🎯 Aggancia AI", type="primary", use_container_width=True):
                                 st.session_state.chat_focused_sku = selected_sku
-                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
+                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI!")
                                 st.rerun()
                                 
                     with btn_col2:
+                        in_compare = selected_sku in st.session_state.compare_skus
+                        if in_compare:
+                            if st.button("⚖️ Rimuovi Confronto", use_container_width=True):
+                                st.session_state.compare_skus.remove(selected_sku)
+                                st.toast(f"Rimosso {selected_sku} dal confronto!")
+                                st.rerun()
+                        else:
+                            if st.button("⚖️ Aggiungi a Confronto", use_container_width=True):
+                                if len(st.session_state.compare_skus) >= 4:
+                                    st.warning("Puoi confrontare al massimo 4 articoli contemporaneamente.")
+                                else:
+                                    st.session_state.compare_skus.append(selected_sku)
+                                    st.toast(f"✅ Aggiunto {selected_sku} al confronto! (Totale: {len(st.session_state.compare_skus)})")
+                                    st.rerun()
+                                
+                    with btn_col3:
                         scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
                         if scheda_resolved and os.path.exists(scheda_resolved):
                             with open(scheda_resolved, "rb") as f:
                                 st.download_button(
-                                    label="📥 Scarica Scheda PDF",
+                                    label="📥 Scheda PDF",
                                     data=f.read(),
                                     file_name=os.path.basename(scheda_resolved),
                                     mime="application/pdf",
                                     use_container_width=True
                                 )
                         else:
-                            st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
+                            st.button("📄 Nessun PDF", disabled=True, use_container_width=True)
 
                     # --- ADD TO QUOTE QUICK SECTION ---
                     st.divider()
@@ -1272,9 +1299,292 @@ with tab_foodcost:
             )
             st.session_state.messages.append({"role": "user", "content": prompt_ai})
             st.toast("Richiesta inviata all'Assistente AI! Apri il Tab 2 per consultare i consigli dello chef AI.")
-            
+                
     with act_col3:
         if st.button("🗑️ Svuota Ricetta", use_container_width=True):
             st.session_state.recipe_ingredients = []
             st.toast("Ricetta svuotata!")
             st.rerun()
+
+# =========================================================================
+# TAB 5: CONFRONTO PRODOTTI SIDE-BY-SIDE & SCHEDE TECNICHE
+# =========================================================================
+with tab_compare:
+    st.markdown("### ⚖️ Confronto Prodotti Side-by-Side con Schede Tecniche")
+    st.caption("Confronta da 2 a 4 referenze del catalogo IFT affiancate, consulta le schede tecniche ufficiali, analizza allergeni e genera perizie comparative con l'Intelligenza Artificiale.")
+    
+    # -------------------------------------------------------------
+    # 1. PRESET COMPARISON SHORTCUTS & CONTROLS
+    # -------------------------------------------------------------
+    with st.container(border=True):
+        st.markdown("##### ⚡ Confronti Rapidi Preimpostati:")
+        pr_col1, pr_col2, pr_col3, pr_col4, pr_col5 = st.columns(5)
+        
+        with pr_col1:
+            if st.button("🌾 Farine Lievitazione (W410 / W350 / W250)", use_container_width=True):
+                st.session_state.compare_skus = ["A110419QU", "A110413QU", "A110414QU"]
+                st.session_state.compare_ai_analysis = None
+                st.rerun()
+        with pr_col2:
+            if st.button("🍖 Prosciutti Cotti (Orazio vs Alta Qualità)", use_container_width=True):
+                # Search for 2 prosciutti cotti
+                st.session_state.compare_skus = ["A050922", "A050901"]
+                st.session_state.compare_ai_analysis = None
+                st.rerun()
+        with pr_col3:
+            if st.button("🧀 Mozzarella vs Burrata Pugliese", use_container_width=True):
+                st.session_state.compare_skus = ["A060101", "A060401"]
+                st.session_state.compare_ai_analysis = None
+                st.rerun()
+        with pr_col4:
+            if st.button("🥩 Carni Bovine Grass Fed vs Nazionali", use_container_width=True):
+                st.session_state.compare_skus = ["A001012", "A001001"]
+                st.session_state.compare_ai_analysis = None
+                st.rerun()
+        with pr_col5:
+            if st.button("🗑️ Svuota Tutto", use_container_width=True):
+                st.session_state.compare_skus = []
+                st.session_state.compare_ai_analysis = None
+                st.toast("Confronto svuotato!")
+                st.rerun()
+
+    # -------------------------------------------------------------
+    # 2. PRODUCT SLOTS SELECTION
+    # -------------------------------------------------------------
+    all_basic_items = database.get_all_products_basic()
+    item_lookup_options = ["-- Seleziona Articolo a Catalogo --"] + [
+        f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+        for p in all_basic_items
+    ]
+    
+    # Clean up compare SKUs
+    valid_compare_skus = [sku for sku in st.session_state.compare_skus if database.get_product_by_code(sku)]
+    if len(valid_compare_skus) != len(st.session_state.compare_skus):
+        st.session_state.compare_skus = valid_compare_skus
+
+    # Slot selector form
+    with st.expander("🛠️ Gestisci / Cambia Articoli nei Singoli Slot di Confronto", expanded=(len(st.session_state.compare_skus) == 0)):
+        st.caption("Seleziona da 2 a 4 prodotti da confrontare contemporaneamente:")
+        
+        # Determine number of slots to show
+        num_slots = max(2, min(4, len(st.session_state.compare_skus) + 1))
+        slot_cols = st.columns(num_slots)
+        
+        updated_skus = []
+        for s_idx in range(num_slots):
+            with slot_cols[s_idx]:
+                current_sku = st.session_state.compare_skus[s_idx] if s_idx < len(st.session_state.compare_skus) else None
+                default_option_idx = 0
+                if current_sku:
+                    for opt_i, opt_text in enumerate(item_lookup_options):
+                        if opt_text.startswith(f"{current_sku} —"):
+                            default_option_idx = opt_i
+                            break
+                            
+                chosen_opt = st.selectbox(
+                    f"Slot {s_idx + 1}:",
+                    options=item_lookup_options,
+                    index=default_option_idx,
+                    key=f"slot_sel_{s_idx}"
+                )
+                
+                if chosen_opt != "-- Seleziona Articolo a Catalogo --":
+                    extracted_sku = chosen_opt.split(" — ")[0].strip()
+                    if extracted_sku not in updated_skus:
+                        updated_skus.append(extracted_sku)
+                        
+        if updated_skus != st.session_state.compare_skus:
+            if st.button("✅ Applica Modifiche Selezione", type="primary"):
+                st.session_state.compare_skus = updated_skus
+                st.session_state.compare_ai_analysis = None
+                st.rerun()
+
+    # -------------------------------------------------------------
+    # 3. SIDE-BY-SIDE COMPARISON CARDS
+    # -------------------------------------------------------------
+    compare_products = [database.get_product_by_code(sku) for sku in st.session_state.compare_skus if database.get_product_by_code(sku)]
+    
+    if not compare_products:
+        st.info("💡 **Nessun prodotto selezionato per il confronto.**\n\nPuoi cliccare su uno dei pulsanti di **Confronto Rapido** in alto, selezionare i prodotti dagli slot, oppure cliccare su **`⚖️ Aggiungi a Confronto`** direttamente dalle schede prodotto nel Tab 1.")
+    else:
+        st.write("")
+        st.markdown(f"#### 📊 Confronto Diretto ({len(compare_products)} referenze affiancate):")
+        
+        # Calculate lowest price
+        prices_list = []
+        for p in compare_products:
+            raw_p = str(p.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip()
+            try:
+                p_val = float(raw_p)
+                if p_val > 0:
+                    prices_list.append(p_val)
+            except (ValueError, TypeError):
+                pass
+        min_price = min(prices_list) if prices_list else 0.0
+
+        grid_cols = st.columns(len(compare_products), gap="medium")
+        
+        for c_idx, prod in enumerate(compare_products):
+            with grid_cols[c_idx]:
+                with st.container(border=True):
+                    # Photo
+                    photo_resolved = resolve_file(prod.get('foto_path'), prod.get('foto_filename'), config.FOTO_DIR)
+                    if photo_resolved and os.path.exists(photo_resolved):
+                        st.image(photo_resolved, use_container_width=True)
+                    else:
+                        st.markdown("""
+                        <div style="background: linear-gradient(135deg, #1E293B, #0F172A); height: 180px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #64748B; font-size: 0.85rem; text-align: center; padding: 10px;">
+                            <div>📸 Foto HD non presente</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.write("")
+                    # SKU & Title
+                    st.markdown(f"<span class='sku-badge'>{prod['cod_art']}</span>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='font-size:1.05rem; font-weight:800; color:#0F172A; line-height:1.2; min-height:48px;'>{prod['descrizione_articolo']}</div>", unsafe_allow_html=True)
+                    
+                    # Price Box
+                    try:
+                        raw_p = str(prod.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip()
+                        p_val = float(raw_p)
+                    except (ValueError, TypeError):
+                        p_val = 0.0
+                        
+                    is_best_price = (p_val > 0 and abs(p_val - min_price) < 0.001 and len(prices_list) > 1)
+                    best_badge = "<span style='background:#DCFCE7; color:#15803D; font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:6px;'>⭐ Miglior Prezzo</span>" if is_best_price else ""
+                    
+                    st.markdown(f"""
+                    <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:10px 12px; border-radius:8px; margin-top:8px; margin-bottom:12px;">
+                        <div style="font-size:0.75rem; color:#166534; font-weight:700;">PREZZO SOGLIA: {best_badge}</div>
+                        <div style="font-size:1.3rem; font-weight:800; color:#15803D;">€ {p_val:.2f} <span style="font-size:0.85rem; font-weight:600; color:#475569;">/ {prod.get('um', 'Kg')}</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Logistic Badges
+                    env = prod.get('ambiente_cons', '')
+                    badge_cls = "badge-asciutto"
+                    if "SURG" in env.upper() or "CONG" in env.upper():
+                        badge_cls = "badge-congelato"
+                    elif "REFR" in env.upper() or "FRES" in env.upper():
+                        badge_cls = "badge-refrigerato"
+                        
+                    st.markdown(f"""
+                    <div style="font-size:0.82rem; color:#334155; line-height:1.6; margin-bottom:12px;">
+                        <div>🌡️ <b>Conservazione:</b> <span class="badge-pill {badge_cls}">{env if env else 'Non specificato'}</span></div>
+                        <div>⏱️ <b>Shelf-life:</b> {prod.get('shelf_life_it', 'N/D')} ({prod.get('tempo_cons_gg', 'N/D')} gg consegna)</div>
+                        <div>📦 <b>Formato/Imballo:</b> {prod.get('unita_imballi', 'N/D')}</div>
+                        <div>🏷️ <b>Gruppo:</b> {prod.get('gruppo_art', 'N/D')}</div>
+                        <div>🚚 <b>Minimo Ordine:</b> {prod.get('minimo_ordine', 'N/D')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Technical Sheet Section
+                    st.markdown("---")
+                    st.markdown("<b>📄 Scheda Tecnica & HACCP:</b>", unsafe_allow_html=True)
+                    
+                    scheda_res = resolve_file(prod.get('scheda_path'), prod.get('scheda_filename'), config.SCHEDE_DIR)
+                    if scheda_res and os.path.exists(scheda_res):
+                        with open(scheda_res, "rb") as f_pdf:
+                            st.download_button(
+                                label=f"📥 Scarica Scheda PDF",
+                                data=f_pdf.read(),
+                                file_name=os.path.basename(scheda_res),
+                                mime="application/pdf",
+                                use_container_width=True,
+                                key=f"dl_comp_pdf_{prod['cod_art']}"
+                            )
+                    else:
+                        st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True, key=f"no_pdf_{prod['cod_art']}")
+                        
+                    scheda_t = prod.get('scheda_text', '').strip()
+                    if scheda_t:
+                        with st.expander("👁️ Testo Integrale Scheda (HACCP & Allergeni)", expanded=False):
+                            st.text_area(
+                                "Testo Scheda",
+                                value=scheda_t,
+                                height=200,
+                                disabled=True,
+                                key=f"txt_comp_{prod['cod_art']}",
+                                label_visibility="collapsed"
+                            )
+                    else:
+                        st.caption("ℹ️ Nessun testo OCR estratto per questo articolo.")
+                        
+                    # Quick Quote & Focus Actions
+                    st.write("")
+                    act_c1, act_c2 = st.columns(2)
+                    with act_c1:
+                        if st.button("🛒 A Preventivo", use_container_width=True, key=f"btn_cp_add_{prod['cod_art']}"):
+                            existing = next((q for q in st.session_state.quote_items if q["cod_art"] == prod["cod_art"]), None)
+                            if existing:
+                                existing["quantita"] += 1.0
+                            else:
+                                st.session_state.quote_items.append({
+                                    "cod_art": prod["cod_art"],
+                                    "descrizione_articolo": prod.get("descrizione_articolo", ""),
+                                    "unita_imballi": prod.get("unita_imballi", ""),
+                                    "um": prod.get("um", "Kg"),
+                                    "quantita": 1.0,
+                                    "prezzo_unitario": p_val
+                                })
+                            st.toast(f"✅ Aggiunto {prod['cod_art']} al Preventivo!")
+                            st.rerun()
+                            
+                    with act_c2:
+                        if st.button("🎯 Focus AI", use_container_width=True, key=f"btn_cp_focus_{prod['cod_art']}"):
+                            st.session_state.chat_focused_sku = prod["cod_art"]
+                            st.toast(f"✅ Articolo {prod['cod_art']} agganciato all'Assistente AI!")
+
+        # -------------------------------------------------------------
+        # 4. AI COMPARATIVE TECHNICAL ANALYSIS
+        # -------------------------------------------------------------
+        st.write("")
+        st.markdown("---")
+        st.markdown("#### 🤖 Perizia Comparativa Specialistica con Assistente AI")
+        st.caption("L'assistente esamina contemporaneamente le schede tecniche, i valori di resa gastronomica, gli allergeni e le caratteristiche organolettiche di tutti i prodotti a confronto:")
+        
+        if st.button("⚡ Genera Perizia Comparativa con Intelligenza Artificiale", type="primary", use_container_width=True):
+            with st.spinner("Analisi tecnica delle schede e generazione perizia comparativa in corso..."):
+                # Prepare contextual prompt with full technical text of compared products
+                products_context = []
+                for p in compare_products:
+                    t_desc = (
+                        f"PRODOTTO SKU: {p['cod_art']}\n"
+                        f"Nome: {p['descrizione_articolo']}\n"
+                        f"Gruppo: {p.get('gruppo_art', '')}\n"
+                        f"Prezzo Soglia: € {p.get('prezzo_indicativo', '0')} / {p.get('um', 'Kg')}\n"
+                        f"Conservazione: {p.get('ambiente_cons', '')}\n"
+                        f"Shelf-life: {p.get('shelf_life_it', '')} ({p.get('tempo_cons_gg', '')} gg)\n"
+                        f"Formato Imballo: {p.get('unita_imballi', '')}\n"
+                        f"TESTO SCHEDA TECNICA UFFICIALE (HACCP/Ingredienti/Allergeni):\n{p.get('scheda_text', 'Scheda non disponibile')[:2500]}\n"
+                        f"-----------------------------------------"
+                    )
+                    products_context.append(t_desc)
+                    
+                full_compare_prompt = (
+                    "Esegui una perizia comparativa tecnica, gastronomica e commerciale approfondita sui seguenti prodotti a catalogo di Italian Food Trading S.r.l.:\n\n"
+                    + "\n\n".join(products_context) + "\n\n"
+                    "Struttura la tua risposta in 4 sezioni chiare ed eleganti in formato Markdown:\n"
+                    "1. 🍕 **Analisi Tecnica & Resa in Cucina/Pizzeria**: Differenze di prestazioni, forza/consistenza, tenuta in cottura o lievitazione, umidità e lavorabilità.\n"
+                    "2. ⚠️ **Confronto Allergeni, Certificazioni & HACCP**: Dichiarazioni allergeni, glutine, lattosio, tracciabilità e shelf-life.\n"
+                    "3. 💰 **Valutazione Economica & Food Cost**: Rapporto qualità/prezzo, incidenza per porzione e convenienza d'impiego.\n"
+                    "4. 💡 **Consiglio di Vendita per l'Agente**: A quale specifica tipologia di locale/chef proporre ciascun articolo (es. Pizzeria Gourmet vs Ristorante Tradizionale vs Bistrot) per massimizzare la soddisfazione del cliente."
+                )
+                
+                analysis_res = ai_assistant.get_chat_response(
+                    messages=[{"role": "user", "content": full_compare_prompt}],
+                    focused_product=None,
+                    api_key=user_api_key if user_api_key else env_api_key,
+                    model_name=model_choice,
+                    enable_grounding=enable_grounding
+                )
+                st.session_state.compare_ai_analysis = analysis_res["text"]
+                st.rerun()
+
+        if st.session_state.get("compare_ai_analysis"):
+            st.markdown("""
+            <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-left:5px solid #2563EB; padding:20px; border-radius:12px; margin-top:16px;">
+                <div style="font-weight:800; font-size:1.15rem; color:#0F172A; margin-bottom:12px;">📑 Risultato Perizia Comparativa AI:</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(st.session_state.compare_ai_analysis)
