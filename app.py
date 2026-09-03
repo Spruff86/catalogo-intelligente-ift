@@ -1202,44 +1202,44 @@ with tab_foodcost:
     act_col1, act_col2, act_col3 = st.columns([1.8, 1.8, 1.0])
     
     with act_col1:
-        with st.popover("🛒 Travasa Ingredienti nel Preventivo", use_container_width=True):
-            st.markdown("**Aggiungi al Preventivo Commerciale (Tab 3)**")
-            st.caption("Calcola il fabbisogno all'ingrosso per un lotto di produzione:")
-            batch_count = st.number_input("Quante porzioni desideri preventivare?", min_value=1, value=50, step=10)
-            
-            if st.button(f"➕ Aggiungi Lotti per {batch_count} Piatti al Preventivo", type="primary", use_container_width=True):
-                added_count = 0
-                for item in st.session_state.recipe_ingredients:
-                    sku = item.get("cod_art")
-                    if sku and sku != "EXTRA":
-                        # Convert recipe quantity to catalog unit
-                        r_q = float(item.get("quantity", 0)) * batch_count
-                        r_u = str(item.get("unit", "g")).lower()
-                        p_um = str(item.get("price_um", "Kg")).lower()
-                        
-                        calc_bulk_qty = r_q
-                        if p_um == "kg" and r_u in ["g", "gr"]:
-                            calc_bulk_qty = r_q / 1000.0
-                        elif p_um == "l" and r_u in ["ml", "cc"]:
-                            calc_bulk_qty = r_q / 1000.0
-                            
-                        # Add to quote session state
-                        existing = next((q for q in st.session_state.quote_items if q["cod_art"] == sku), None)
-                        if existing:
-                            existing["quantita"] += calc_bulk_qty
-                        else:
-                            st.session_state.quote_items.append({
-                                "cod_art": sku,
-                                "descrizione_articolo": item.get("name", ""),
-                                "unita_imballi": "",
-                                "um": item.get("price_um", "Kg"),
-                                "quantita": round(calc_bulk_qty, 2),
-                                "prezzo_unitario": float(item.get("unit_price", 0.0))
-                            })
-                        added_count += 1
-                        
-                st.toast(f"✅ Travasati {added_count} articoli nel preventivo commerciale per {batch_count} porzioni!")
+        if st.button("🛒 Travasa Ingredienti nel Preventivo", type="primary", use_container_width=True):
+            added_count = 0
+            for item in st.session_state.recipe_ingredients:
+                sku = item.get("cod_art")
+                if sku and sku != "EXTRA":
+                    # Retrieve full product details from DB if available
+                    db_prod = database.get_product_by_code(sku)
+                    desc = db_prod.get("descrizione_articolo", item.get("name", "")) if db_prod else item.get("name", "")
+                    imballi = db_prod.get("unita_imballi", "") if db_prod else ""
+                    um_val = item.get("price_um") or (db_prod.get("um") if db_prod else "Kg")
+                    unit_p = float(item.get("unit_price", 0.0))
+                    if unit_p <= 0 and db_prod and db_prod.get("prezzo_indicativo"):
+                        try:
+                            unit_p = float(str(db_prod["prezzo_indicativo"]).replace("€", "").replace(",", ".").strip())
+                        except (ValueError, TypeError):
+                            unit_p = 0.0
+                    
+                    # Add/update in quote session state with standard unit of measure and price per Kg/UM
+                    existing = next((q for q in st.session_state.quote_items if q["cod_art"] == sku), None)
+                    if existing:
+                        existing["prezzo_unitario"] = unit_p
+                        existing["um"] = um_val
+                    else:
+                        st.session_state.quote_items.append({
+                            "cod_art": sku,
+                            "descrizione_articolo": desc,
+                            "unita_imballi": imballi,
+                            "um": um_val,
+                            "quantita": 1.0,
+                            "prezzo_unitario": unit_p
+                        })
+                    added_count += 1
+                    
+            if added_count > 0:
+                st.toast(f"✅ Travasati con successo {added_count} articoli nel Preventivo con prezzo al Kg/U.M.!")
                 st.rerun()
+            else:
+                st.warning("Nessun articolo con codice SKU valido da travasare.")
                 
     with act_col2:
         if st.button("🤖 Chiedi all'AI di Ottimizzare il Food Cost", use_container_width=True):
