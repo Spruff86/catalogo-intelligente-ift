@@ -1157,15 +1157,21 @@ with tab_foodcost:
                     sku_part = chosen_cat_prod.split(" — ")[0].strip()
                     matched_prod = database.get_product_by_code(sku_part)
                     if matched_prod:
+                        try:
+                            raw_p = str(matched_prod.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip()
+                            u_price = float(raw_p) if raw_p else 0.0
+                        except (ValueError, TypeError):
+                            u_price = 0.0
+                            
                         st.session_state.recipe_ingredients.append({
                             "cod_art": matched_prod["cod_art"],
                             "name": matched_prod["descrizione_articolo"],
                             "quantity": add_ing_qty,
                             "unit": add_ing_um,
-                            "unit_price": float(matched_prod.get("prezzo_soglia", 0.0) or 0.0),
+                            "unit_price": u_price,
                             "price_um": matched_prod.get("um", "Kg")
                         })
-                        st.toast(f"✅ Inserito {matched_prod['cod_art']} nella ricetta!")
+                        st.toast(f"✅ Inserito {matched_prod['cod_art']} ({matched_prod['descrizione_articolo']}) a € {u_price:.2f}/{matched_prod.get('um', 'Kg')}!")
                         st.rerun()
                 else:
                     st.warning("Seleziona prima un prodotto dal menu a tendina.")
@@ -1262,14 +1268,14 @@ with tab_foodcost:
                 
     with act_col2:
         if st.button("🤖 Chiedi all'AI di Ottimizzare il Food Cost", use_container_width=True):
-            # Formulate structured prompt for Gemini
-            recipe_items_desc = ", ".join([f"{i['name']} ({i['quantity']} {i['unit']})" for i in st.session_state.recipe_ingredients])
+            # Formulate structured prompt for Gemini with strict catalog integrity
+            recipe_items_desc = ", ".join([f"`{i.get('cod_art', '')}` — {i['name']} ({i['quantity']} {i['unit']})" for i in st.session_state.recipe_ingredients])
             prompt_ai = (
                 f"Analizza il Food Cost per la ricetta '{st.session_state.recipe_name}' ({st.session_state.recipe_category}):\n"
                 f"- Costo ingredienti per porzione: € {summary['food_cost_per_portion']:.2f}\n"
                 f"- Prezzo di vendita a menu: € {summary['actual_selling_price_gross']:.2f} (Food Cost: {summary['actual_food_cost_pct']:.1f}%)\n"
                 f"- Ingredienti attuali: {recipe_items_desc}\n\n"
-                f"Suggeriscimi strategie gastronomiche e alternative di prodotti dal catalogo Italian Food Trading S.r.l. per ottimizzare il Food Cost, ridurre gli sprechi e aumentare la marginalità lorda per il ristoratore."
+                f"REGOLA TASSATIVA AZIENDALE: Suggerisci ESCLUSIVAMENTE codici SKU reali e prodotti presenti a magazzino nel catalogo Italian Food Trading S.r.l. Non inventare mai codici SKU o ingredienti generici non presenti a listino. Per ogni alternativa proposta, cita il codice SKU esatto, la descrizione ufficiale e il Prezzo Soglia."
             )
             st.session_state.messages.append({"role": "user", "content": prompt_ai})
             st.toast("Richiesta inviata all'Assistente AI! Apri il Tab 2 per consultare i consigli dello chef AI.")

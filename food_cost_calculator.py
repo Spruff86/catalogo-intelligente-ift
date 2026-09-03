@@ -150,7 +150,7 @@ def calculate_recipe_summary(
         "items_breakdown": items_breakdown
     }
 
-# Pre-loaded Template Recipes with real items from Italian Food Trading catalog
+# Pre-loaded Template Recipes strictly verified with real items from Italian Food Trading catalog
 RECIPE_TEMPLATES = {
     "🍕 Pizza Margherita Tradizionale": {
         "name": "Pizza Margherita Classica",
@@ -161,43 +161,35 @@ RECIPE_TEMPLATES = {
         "ingredients": [
             {
                 "cod_art": "A110414QU",
-                "name": "Farina 00 W250 Qualitaly (Impasto/Pallina)",
+                "name": "FARINA DI GRANO TENERO 00 W250 Qualitaly",
                 "quantity": 180,
                 "unit": "g",
-                "unit_price": 1.15,
+                "unit_price": 1.07,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A010101",
-                "name": "Polpa di Pomodoro Fine per Pizza",
+                "cod_art": "A140212",
+                "name": "POLPA DI POMODORO FINE 3/1 gr.2500 marchio IFT",
                 "quantity": 90,
                 "unit": "g",
-                "unit_price": 1.45,
+                "unit_price": 1.83,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A060101",
-                "name": "Mozzarella Fiordilatte Julienne",
+                "cod_art": "A060451",
+                "name": "MOZZARELLA FIORDILATTE JULIENNE VASCH. 2,5 KG marchio Qualitaly",
                 "quantity": 110,
                 "unit": "g",
-                "unit_price": 6.80,
+                "unit_price": 7.01,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A120101",
-                "name": "Olio Extra Vergine di Oliva 100% Italiano",
+                "cod_art": "A120813",
+                "name": "OLIO EXTRA VERGINE BOTT.VETRO LT.1 marchio Tavola Viva",
                 "quantity": 10,
                 "unit": "ml",
-                "unit_price": 9.50,
+                "unit_price": 7.26,
                 "price_um": "L"
-            },
-            {
-                "cod_art": "EXTRA",
-                "name": "Basilico fresco, lievito, sale & cottura forno",
-                "quantity": 1,
-                "unit": "Pz",
-                "unit_price": 0.25,
-                "price_um": "Pz"
             }
         ]
     },
@@ -210,55 +202,55 @@ RECIPE_TEMPLATES = {
         "ingredients": [
             {
                 "cod_art": "A110413QU",
-                "name": "Farina 00 W350 Qualitaly (Lievitazione 48h)",
+                "name": "FARINA DI GRANO TENERO 00 W350 Qualitaly",
                 "quantity": 180,
                 "unit": "g",
                 "unit_price": 1.21,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A010101",
-                "name": "Polpa Pomodoro San Marzano DOP",
+                "cod_art": "A140212",
+                "name": "POLPA DI POMODORO FINE 3/1 gr.2500 marchio IFT",
                 "quantity": 80,
                 "unit": "g",
-                "unit_price": 2.10,
+                "unit_price": 1.83,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A060101",
-                "name": "Mozzarella Fiordilatte in cottura",
+                "cod_art": "A060451",
+                "name": "MOZZARELLA FIORDILATTE JULIENNE VASCH. 2,5 KG marchio Qualitaly",
                 "quantity": 80,
                 "unit": "g",
-                "unit_price": 6.80,
+                "unit_price": 7.01,
                 "price_um": "Kg"
             },
             {
                 "cod_art": "A050922",
-                "name": "PROSC.COTTO 'ORAZIO' A.Q. ALLA BRACE COATI",
+                "name": "PROSC.COTTO 'ORAZIO' A.Q. ALLA BRACE - CML",
                 "quantity": 70,
                 "unit": "g",
-                "unit_price": 7.50,
+                "unit_price": 11.19,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A060401",
-                "name": "Burrata Pugliese Cuore Morbido 100g",
+                "cod_art": "A080895",
+                "name": "BURRATA GR.100 SECCHIELLO SABELLI",
                 "quantity": 1,
                 "unit": "Pz",
-                "unit_price": 1.40,
+                "unit_price": 1.75,
                 "price_um": "Pz"
             },
             {
-                "cod_art": "A120101",
-                "name": "Olio EVO & Granella di Nocciole Tostate",
-                "quantity": 15,
-                "unit": "g",
-                "unit_price": 12.00,
-                "price_um": "Kg"
+                "cod_art": "A120813",
+                "name": "OLIO EXTRA VERGINE BOTT.VETRO LT.1 marchio Tavola Viva",
+                "quantity": 10,
+                "unit": "ml",
+                "unit_price": 7.26,
+                "price_um": "L"
             }
         ]
     },
-    "🥩 Tagliata di Roast-Beef Grass Fed con Rucola e Grana": {
+    "🥩 Tagliata di Roast-Beef Grass Fed con Grana Padano": {
         "name": "Tagliata di Roast-Beef Grass Fed Argentina",
         "category": "Secondi Piatti",
         "portions": 1,
@@ -274,36 +266,20 @@ RECIPE_TEMPLATES = {
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A070101",
-                "name": "Rucola selvatica fresca",
-                "quantity": 35,
-                "unit": "g",
-                "unit_price": 5.50,
-                "price_um": "Kg"
-            },
-            {
-                "cod_art": "A060201",
-                "name": "Grana Padano DOP Riserva in Scaglie",
+                "cod_art": "A061198",
+                "name": "GRANA PADANO SCAGLIE KG.1 SACCO ZP",
                 "quantity": 30,
                 "unit": "g",
-                "unit_price": 14.80,
+                "unit_price": 20.70,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A120101",
-                "name": "Olio Extra Vergine di Oliva & Glassa Balsamica",
-                "quantity": 20,
+                "cod_art": "A120813",
+                "name": "OLIO EXTRA VERGINE BOTT.VETRO LT.1 marchio Tavola Viva",
+                "quantity": 15,
                 "unit": "ml",
-                "unit_price": 11.00,
+                "unit_price": 7.26,
                 "price_um": "L"
-            },
-            {
-                "cod_art": "EXTRA",
-                "name": "Sale Maldon in fiocchi e pane d'accompagnamento",
-                "quantity": 1,
-                "unit": "Pz",
-                "unit_price": 0.40,
-                "price_um": "Pz"
             }
         ]
     },
@@ -316,43 +292,43 @@ RECIPE_TEMPLATES = {
         "ingredients": [
             {
                 "cod_art": "A050922",
-                "name": "Prosciutto Cotto Orazio alla Brace",
+                "name": "PROSC.COTTO 'ORAZIO' A.Q. ALLA BRACE - CML",
                 "quantity": 120,
                 "unit": "g",
-                "unit_price": 7.50,
+                "unit_price": 11.19,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A050101",
-                "name": "Prosciutto Crudo di Parma DOP 24 Mesi",
+                "cod_art": "A050302",
+                "name": "PROSC.CRUDO NAZIONALE 7+ DISOSSATO/PRESSATO SOAVE 14/16 MESI",
                 "quantity": 120,
                 "unit": "g",
-                "unit_price": 19.50,
+                "unit_price": 18.60,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A060201",
-                "name": "Grana Padano DOP Riserva & Pecorino Toscano",
+                "cod_art": "A061132",
+                "name": "GRANA PADANO DOP RISERVA 1/8 STAG. OLTRE 20 MESI ZP",
                 "quantity": 160,
                 "unit": "g",
-                "unit_price": 15.20,
+                "unit_price": 19.72,
                 "price_um": "Kg"
             },
             {
-                "cod_art": "A060401",
-                "name": "Burratina Pugliese 100g",
+                "cod_art": "A080895",
+                "name": "BURRATA GR.100 SECCHIELLO SABELLI",
                 "quantity": 2,
                 "unit": "Pz",
-                "unit_price": 1.40,
+                "unit_price": 1.75,
                 "price_um": "Pz"
             },
             {
-                "cod_art": "A100101",
-                "name": "Focaccia ligure all'olio & Mostarda di frutta",
-                "quantity": 1,
-                "unit": "Pz",
-                "unit_price": 1.50,
-                "price_um": "Pz"
+                "cod_art": "A120813",
+                "name": "OLIO EXTRA VERGINE BOTT.VETRO LT.1 marchio Tavola Viva",
+                "quantity": 20,
+                "unit": "ml",
+                "unit_price": 7.26,
+                "price_um": "L"
             }
         ]
     }
