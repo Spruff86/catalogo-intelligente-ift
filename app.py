@@ -716,16 +716,10 @@ with tab_quote:
                     options=["15 giorni", "30 giorni", "60 giorni", "Fino a esaurimento scorte"], 
                     index=1
                 )
-                iva_rate = st.selectbox(
-                    "Aliquota IVA (%)", 
-                    options=[10.0, 4.0, 22.0, 0.0], 
-                    index=0,
-                    format_func=lambda x: f"{x:g}% (Alimentare Standard)" if x == 10.0 else f"{x:g}%"
-                )
                 notes = st.text_area(
                     "Note e Condizioni di Consegna", 
-                    value=st.session_state.quote_customer.get("notes", "Resa franco destino. Pagamento come da accordi commerciali. Merce soggetta a disponibilità."),
-                    height=80
+                    value=st.session_state.quote_customer.get("notes", "Resa franco destino. Pagamento come da accordi commerciali. Merce soggetta a disponibilità. Fatturazione al peso effettivo alla consegna."),
+                    height=90
                 )
                 
                 # Save state
@@ -737,20 +731,18 @@ with tab_quote:
                     "doc_number": doc_num,
                     "agent_name": agent_name,
                     "validity": validity,
-                    "iva_rate": iva_rate,
                     "notes": notes
                 }
 
         # --- RIGHT: ITEMS LIST & ACTIONS ---
         with col_q_items:
-            st.markdown(f"##### 🛒 Articoli in Preventivo ({len(st.session_state.quote_items)} referenze):")
+            st.markdown(f"##### 🛒 Articoli in Offerta ({len(st.session_state.quote_items)} referenze):")
             
-            total_net = 0.0
             items_to_remove = []
             
             for idx, it in enumerate(st.session_state.quote_items):
                 with st.container(border=True):
-                    r_col1, r_col2, r_col3, r_col4, r_col5 = st.columns([3.5, 1.2, 1.4, 1.5, 0.6])
+                    r_col1, r_col2, r_col3, r_col4 = st.columns([4.2, 1.4, 1.8, 0.6])
                     
                     with r_col1:
                         st.markdown(f"<b>`{it['cod_art']}`</b> — {it['descrizione_articolo']}", unsafe_allow_html=True)
@@ -769,7 +761,7 @@ with tab_quote:
                         
                     with r_col3:
                         new_prc = st.number_input(
-                            "Prezzo (€)",
+                            f"Prezzo (€/{it.get('um', 'Kg')})",
                             min_value=0.0,
                             value=float(it.get("prezzo_unitario", 0.0)),
                             step=0.10,
@@ -778,14 +770,7 @@ with tab_quote:
                         )
                         it["prezzo_unitario"] = new_prc
                         
-                    row_tot = new_qty * new_prc
-                    total_net += row_tot
-                    
                     with r_col4:
-                        st.write("")
-                        st.markdown(f"<div style='font-size:1.1rem; font-weight:800; color:#0F172A; text-align:right; margin-top:4px;'>€ {row_tot:.2f}</div>", unsafe_allow_html=True)
-                        
-                    with r_col5:
                         st.write("")
                         if st.button("🗑️", key=f"del_item_{idx}", help="Rimuovi articolo"):
                             items_to_remove.append(idx)
@@ -796,28 +781,8 @@ with tab_quote:
                     st.session_state.quote_items.pop(rem_idx)
                 st.rerun()
 
-            # --- TOTALS SUMMARY BOX ---
-            iva_val = total_net * (iva_rate / 100.0)
-            total_gross = total_net + iva_val
-            
-            st.markdown(f"""
-            <div class="quote-total-box">
-                <div style="display:flex; justify-content:space-between; font-size:0.95rem; color:#CBD5E1; margin-bottom:4px;">
-                    <span>Totale Imponibile:</span>
-                    <span><b>€ {total_net:.2f}</b></span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.95rem; color:#CBD5E1; margin-bottom:8px;">
-                    <span>IVA ({iva_rate:g}%):</span>
-                    <span><b>€ {iva_val:.2f}</b></span>
-                </div>
-                <div style="height:1px; background:#334155; margin-bottom:8px;"></div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:700; font-size:1.15rem;">TOTALE PREVENTIVO:</span>
-                    <span class="quote-total-amount">€ {total_gross:.2f}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
+            st.write("")
+
             # --- EXPORT & SHARE ACTIONS ---
             st.markdown("##### 🚀 Azioni di Esportazione & Condivisione:")
             
@@ -833,21 +798,19 @@ with tab_quote:
                     "phone_email": cust_phone
                 },
                 "items": st.session_state.quote_items,
-                "iva_rate": iva_rate,
                 "notes": notes
             }
             
             btn_pdf_col, btn_wa_col, btn_clr_col = st.columns([1.5, 1.5, 1])
             
             with btn_pdf_col:
-                # Generate PDF in memory
                 logo_file = "ift_logo.png" if os.path.exists("ift_logo.png") else None
                 try:
                     pdf_bytes = quote_generator.generate_quote_pdf(quote_payload, logo_path=logo_file)
                     st.download_button(
-                        label="📥 Scarica Preventivo PDF",
+                        label="📥 Scarica Proposta PDF",
                         data=pdf_bytes,
-                        file_name=f"Preventivo_{doc_num}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        file_name=f"Offerta_{doc_num}_{datetime.now().strftime('%Y%m%d')}.pdf",
                         mime="application/pdf",
                         type="primary",
                         use_container_width=True
