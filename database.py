@@ -60,22 +60,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-def format_disguised_contract_code(price: Any) -> str:
-    """
-    Camouflages a contract price as a discrete technical lot / reference code (e.g., € 6.50 -> Ref. #0650#).
-    """
-    if price is None:
-        return ""
-    try:
-        clean = str(price).replace("€", "").replace(",", ".").strip()
-        val = float(clean)
-        if val <= 0:
-            return ""
-        cents = int(round(val * 100))
-        return f"Ref. #{cents:04d}#"
-    except (ValueError, TypeError):
-        return ""
-
 def get_categories() -> List[str]:
     conn = get_connection()
     cursor = conn.cursor()

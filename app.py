@@ -533,11 +533,6 @@ with tab_catalog:
                     except ValueError:
                         default_p = 0.0
                         
-                    ref_contratto = database.format_disguised_contract_code(current_prod.get('prezzo_contratto'))
-                    prc_label = "Prezzo (€)"
-                    if ref_contratto:
-                        prc_label += f" • {ref_contratto}"
-                        
                     q_col_qty, q_col_prc, q_col_btn = st.columns([1, 1.2, 1.8])
                     with q_col_qty:
                         add_qty = st.number_input(
@@ -549,7 +544,7 @@ with tab_catalog:
                         )
                     with q_col_prc:
                         add_price = st.number_input(
-                            prc_label,
+                            "Prezzo (€)",
                             min_value=0.0,
                             value=default_p,
                             step=0.10,
@@ -572,8 +567,7 @@ with tab_catalog:
                                     "unita_imballi": current_prod.get("unita_imballi", ""),
                                     "um": current_prod.get("um", "Kg"),
                                     "quantita": add_qty,
-                                    "prezzo_unitario": add_price,
-                                    "prezzo_contratto": current_prod.get("prezzo_contratto", "")
+                                    "prezzo_unitario": add_price
                                 })
                             st.toast(f"✅ Aggiunto {selected_sku} al Preventivo! (Totale articoli: {len(st.session_state.quote_items)})")
                             st.rerun()
@@ -819,14 +813,6 @@ with tab_quote:
                         it["quantita"] = new_qty
                         
                     with r_col3:
-                        c_p = it.get("prezzo_contratto")
-                        if not c_p and it.get("cod_art"):
-                            db_p = database.get_product_by_code(it.get("cod_art", ""))
-                            if db_p:
-                                c_p = db_p.get("prezzo_contratto")
-                                it["prezzo_contratto"] = c_p
-                        ref_code = database.format_disguised_contract_code(c_p)
-                        
                         new_prc = st.number_input(
                             f"Prezzo (€/{it.get('um', 'Kg')})",
                             min_value=0.0,
@@ -836,8 +822,6 @@ with tab_quote:
                             key=f"q_edit_prc_{idx}"
                         )
                         it["prezzo_unitario"] = new_prc
-                        if ref_code:
-                            st.markdown(f"<div style='font-size:0.75rem; color:#64748B; font-family:ui-monospace, monospace; margin-top:2px;'><code>{ref_code}</code></div>", unsafe_allow_html=True)
                         
                     with r_col4:
                         st.write("")
@@ -1090,14 +1074,6 @@ with tab_foodcost:
                 ing["unit"] = new_u
                 
             with r_col_prc:
-                c_p = ing.get("prezzo_contratto")
-                if not c_p and ing.get("cod_art"):
-                    db_p = database.get_product_by_code(ing.get("cod_art", ""))
-                    if db_p:
-                        c_p = db_p.get("prezzo_contratto")
-                        ing["prezzo_contratto"] = c_p
-                ref_code = database.format_disguised_contract_code(c_p)
-                
                 price_um = ing.get("price_um", "Kg")
                 new_p = st.number_input(
                     f"Prezzo (€/{price_um})",
@@ -1108,8 +1084,6 @@ with tab_foodcost:
                     key=f"ing_p_{idx}"
                 )
                 ing["unit_price"] = new_p
-                if ref_code:
-                    st.markdown(f"<div style='font-size:0.75rem; color:#64748B; font-family:ui-monospace, monospace; margin-top:2px;'><code>{ref_code}</code></div>", unsafe_allow_html=True)
                 
             # Calculate row cost
             row_cost = food_cost_calculator.calculate_ingredient_cost(new_q, new_u, new_p, price_um)
