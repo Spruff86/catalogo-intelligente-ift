@@ -12,6 +12,7 @@ import ai_assistant
 import quote_generator
 import food_cost_calculator
 import urllib.parse
+import re
 
 # Page configuration
 st.set_page_config(
@@ -1338,7 +1339,7 @@ with tab_foodcost:
             st.rerun()
 
     # -------------------------------------------------------------
-    # 8. AI FOOD COST OPTIMIZATION REPORT DISPLAY
+    # 8. AI FOOD COST OPTIMIZATION REPORT DISPLAY & ACTIONS
     # -------------------------------------------------------------
     if st.session_state.get("food_cost_ai_analysis"):
         st.write("")
@@ -1354,3 +1355,73 @@ with tab_foodcost:
         </div>
         """, unsafe_allow_html=True)
         st.markdown(st.session_state.food_cost_ai_analysis)
+        
+        # Detect all real catalog products cited in the AI report
+        found_skus = re.findall(r'\b(A[0-9]{5,7}[A-Za-z0-9]*)\b', st.session_state.food_cost_ai_analysis)
+        unique_skus = []
+        for s in found_skus:
+            if s not in unique_skus and database.get_product_by_code(s):
+                unique_skus.append(s)
+                
+        if unique_skus:
+            st.write("")
+            st.markdown("##### ⚡ Azioni Rapide sui Prodotti Alternativi Proposti dall'AI:")
+            st.caption("Usa i pulsanti sottostanti per inserire un nuovo ingrediente suggerito o sostituirlo con 1 click a una referenza già presente nella distinta base:")
+            
+            curr_ing_options = {
+                f"{i['name']} ({i.get('cod_art', 'N/D')})": idx
+                for idx, i in enumerate(st.session_state.recipe_ingredients)
+            }
+            
+            for s_idx, alt_sku in enumerate(unique_skus):
+                alt_prod = database.get_product_by_code(alt_sku)
+                if not alt_prod:
+                    continue
+                try:
+                    alt_price = float(str(alt_prod.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip() or 0.0)
+                except (ValueError, TypeError):
+                    alt_price = 0.0
+                alt_um = alt_prod.get('um', 'Kg')
+                
+                with st.container(border=True):
+                    c_info, c_act_add, c_act_rep = st.columns([3.2, 1.3, 2.5])
+                    
+                    with c_info:
+                        st.markdown(f"<b><code>{alt_prod['cod_art']}</code> — {alt_prod['descrizione_articolo']}</b>", unsafe_allow_html=True)
+                        st.markdown(f"<span style='color:#15803D; font-weight:700; font-size:0.9rem;'>Prezzo Soglia: € {alt_price:.2f} / {alt_um}</span> &nbsp;|&nbsp; <span style='color:#64748B; font-size:0.82rem;'>Imballo: {alt_prod.get('unita_imballi', 'N/D')}</span>", unsafe_allow_html=True)
+                        
+                    with c_act_add:
+                        st.write("")
+                        if st.button("➕ Inserisci", key=f"btn_ai_add_{alt_sku}_{s_idx}", use_container_width=True, help="Aggiunge questo articolo alla ricetta"):
+                            st.session_state.recipe_ingredients.append({
+                                "cod_art": alt_prod["cod_art"],
+                                "name": alt_prod["descrizione_articolo"],
+                                "quantity": 100.0 if alt_um.lower() in ["kg", "g"] else 1.0,
+                                "unit": "g" if alt_um.lower() in ["kg", "g"] else alt_um,
+                                "unit_price": alt_price,
+                                "price_um": alt_um
+                            })
+                            st.toast(f"✅ Inserito {alt_prod['cod_art']} nella ricetta!")
+                            st.rerun()
+                            
+                    with c_act_rep:
+                        if curr_ing_options:
+                            rep_cols_sel, rep_cols_btn = st.columns([1.8, 1.2])
+                            with rep_cols_sel:
+                                chosen_ing_label = st.selectbox(
+                                    "Sostituisci a:",
+                                    options=list(curr_ing_options.keys()),
+                                    key=f"sel_ai_rep_{alt_sku}_{s_idx}",
+                                    label_visibility="collapsed"
+                                )
+                            with rep_cols_btn:
+                                if st.button("🔄 Sostituisci", key=f"btn_ai_rep_{alt_sku}_{s_idx}", type="primary", use_container_width=True, help="Sostituisce l'ingrediente selezionato"):
+                                    target_idx = curr_ing_options[chosen_ing_label]
+                                    target_item = st.session_state.recipe_ingredients[target_idx]
+                                    old_name = target_item['name']
+                                    target_item["cod_art"] = alt_prod["cod_art"]
+                                    target_item["name"] = alt_prod["descrizione_articolo"]
+                                    target_item["unit_price"] = alt_price
+                                    target_item["price_um"] = alt_um
+                                    st.toast(f"✅ Sostituito '{old_name}' con '{alt_prod['cod_art']} - {alt_prod['descrizione_articolo']}'!")
+                                    st.rerun()
