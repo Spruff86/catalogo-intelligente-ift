@@ -801,8 +801,6 @@ with tab_quote:
                     
                     with r_col1:
                         st.markdown(f"<b>`{it['cod_art']}`</b> — {it['descrizione_articolo']}", unsafe_allow_html=True)
-                        if it.get("unita_imballi"):
-                            st.caption(f"📦 {it['unita_imballi']}")
                             
                     with r_col2:
                         new_qty = st.number_input(

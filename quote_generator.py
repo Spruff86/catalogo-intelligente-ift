@@ -286,8 +286,6 @@ def generate_quote_pdf(
             price = 0.0
             
         desc_full = f"<b>{desc}</b>"
-        if packaging:
-            desc_full += f"<br/><font color='#64748B' size='7.5'><i>{packaging}</i></font>"
             
         table_data.append([
             Paragraph(str(idx), style_td_center),
