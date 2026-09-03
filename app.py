@@ -1356,12 +1356,24 @@ with tab_foodcost:
         """, unsafe_allow_html=True)
         st.markdown(st.session_state.food_cost_ai_analysis)
         
-        # Detect all real catalog products cited in the AI report
+        # Get set of SKUs currently present in the recipe
+        current_recipe_skus = {
+            str(i.get("cod_art", "")).strip().upper() 
+            for i in st.session_state.recipe_ingredients 
+            if i.get("cod_art")
+        }
+        
+        # Detect all real catalog products cited in the AI report that are NEW / alternative (not currently in recipe)
         found_skus = re.findall(r'\b(A[0-9]{5,7}[A-Za-z0-9]*)\b', st.session_state.food_cost_ai_analysis)
         unique_skus = []
         for s in found_skus:
-            if s not in unique_skus and database.get_product_by_code(s):
-                unique_skus.append(s)
+            s_upper = s.strip().upper()
+            if (
+                s_upper not in unique_skus 
+                and s_upper not in current_recipe_skus 
+                and database.get_product_by_code(s_upper)
+            ):
+                unique_skus.append(s_upper)
                 
         if unique_skus:
             st.write("")
