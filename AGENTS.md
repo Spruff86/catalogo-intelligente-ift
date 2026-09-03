@@ -16,7 +16,8 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
 ## 🏗️ Architettura del Codebase
 
 ```text
-├── app.py                     # Frontend Streamlit: UI moderna, Hero banner, Product card, Chat studio AI
+├── app.py                     # Frontend Streamlit: UI moderna, Hero banner, Product card, Chat studio AI, Preventivi
+├── quote_generator.py         # Motore ReportLab: Generatore Preventivi PDF aziendali IFT & export WhatsApp
 ├── database.py                # Database SQLite, FTS5, stemming morfologico italiano, ranking pertinenza
 ├── ai_assistant.py            # RAG Engine, integrazione Gemini (3.6/2.5 Flash), failover e rate-limit handler
 ├── indexer.py                 # Pipeline di indicizzazione Excel -> SQLite + estrazione testo PDF schede
@@ -24,7 +25,7 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
 ├── catalogo_horeca.db         # Database SQLite pre-indicizzato (12 MB)
 ├── ift_logo.png               # Logo ufficiale trasparente di Italian Food Trading S.r.l.
 ├── start.sh                   # Script di avvio rapido per ambiente locale
-├── requirements.txt           # Dipendenze Python
+├── requirements.txt           # Dipendenze Python (Streamlit, ReportLab, Google-GenAI, ecc.)
 ├── android-app/               # Progetto nativo Android per Tablet (WebView + PDF Downloader)
 │   ├── app/src/main/
 │   │   ├── AndroidManifest.xml
@@ -39,6 +40,10 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
 ---
 
 ## 📋 Specifiche dei Moduli e Flussi Dati
+
+### 1. `quote_generator.py`
+- **Motore PDF Vettoriale**: Generazione tramite `reportlab` in memoria (`io.BytesIO`) con layout aziendale IFT (Navy/Oro), logo ufficiale, box anagrafica cliente, tabella articoli con formattazione automatica dei testi, totali/IVA e riquadro firme.
+- **Integrazione WhatsApp**: Funzione `generate_whatsapp_message()` e `get_whatsapp_url()` per comporre e inviare con un click preventivi pre-formattati con codici SKU, quantità e prezzi.
 
 ### 1. `database.py`
 - **Tabelle**: `products` (dati anagrafici, logistici, prezzi, percorsi foto/schede, testo PDF estratto) e `products_fts` (FTS5 full-text).
