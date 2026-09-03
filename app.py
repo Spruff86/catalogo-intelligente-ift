@@ -286,6 +286,8 @@ if "recipe_ingredients" not in st.session_state:
     st.session_state.recipe_ingredients = [
         dict(x) for x in food_cost_calculator.RECIPE_TEMPLATES["🌟 Pizza Gourmet Orazio alla Brace & Burrata"]["ingredients"]
     ]
+if "food_cost_ai_analysis" not in st.session_state:
+    st.session_state.food_cost_ai_analysis = None
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -956,6 +958,7 @@ with tab_foodcost:
                     st.session_state.recipe_target_pct = tpl_data["target_pct"]
                     st.session_state.recipe_actual_price = tpl_data["actual_price"]
                     st.session_state.recipe_ingredients = [dict(x) for x in tpl_data["ingredients"]]
+                    st.session_state.food_cost_ai_analysis = None
                     st.toast(f"Caricata ricetta: {tpl_data['name']}!")
                     st.rerun()
 
@@ -1267,21 +1270,87 @@ with tab_foodcost:
                 st.warning("Nessun articolo con codice SKU valido da travasare.")
                 
     with act_col2:
-        if st.button("🤖 Chiedi all'AI di Ottimizzare il Food Cost", use_container_width=True):
-            # Formulate structured prompt for Gemini with strict catalog integrity
-            recipe_items_desc = ", ".join([f"`{i.get('cod_art', '')}` — {i['name']} ({i['quantity']} {i['unit']})" for i in st.session_state.recipe_ingredients])
-            prompt_ai = (
-                f"Analizza il Food Cost per la ricetta '{st.session_state.recipe_name}' ({st.session_state.recipe_category}):\n"
-                f"- Costo ingredienti per porzione: € {summary['food_cost_per_portion']:.2f}\n"
-                f"- Prezzo di vendita a menu: € {summary['actual_selling_price_gross']:.2f} (Food Cost: {summary['actual_food_cost_pct']:.1f}%)\n"
-                f"- Ingredienti attuali: {recipe_items_desc}\n\n"
-                f"REGOLA TASSATIVA AZIENDALE: Suggerisci ESCLUSIVAMENTE codici SKU reali e prodotti presenti a magazzino nel catalogo Italian Food Trading S.r.l. Non inventare mai codici SKU o ingredienti generici non presenti a listino. Per ogni alternativa proposta, cita il codice SKU esatto, la descrizione ufficiale e il Prezzo Soglia."
-            )
-            st.session_state.messages.append({"role": "user", "content": prompt_ai})
-            st.toast("Richiesta inviata all'Assistente AI! Apri il Tab 2 per consultare i consigli dello chef AI.")
+        if st.button("🤖 Ottimizza Food Cost con Assistente AI", type="primary", use_container_width=True):
+            with st.spinner("Analisi gastronomica, bilanciamento grammature e ricerca alternative IFT in corso..."):
+                # Detailed breakdown of current ingredients with % impact
+                items_breakdown_text = "\n".join([
+                    f"- SKU: `{i.get('cod_art', 'N/D')}` | {i['name']} | Dosaggio: {i['quantity']} {i['unit']} | Prezzo Listino: € {i['unit_price']:.2f}/{i['price_um']} | Costo Incidenza: € {i['cost']:.2f} ({i['cost_pct']:.1f}% del piatto)"
+                    for i in summary['items_breakdown']
+                ])
+                
+                # Retrieve relevant candidate substitutes from IFT catalog
+                catalog_suggestions = []
+                for ing in st.session_state.recipe_ingredients:
+                    words = [w for w in ing['name'].replace('-', ' ').replace('/', ' ').replace('"', ' ').split() if len(w) > 3]
+                    for w in words[:2]:
+                        matches = database.search_products(w, limit=3)
+                        for m in matches:
+                            if m['cod_art'] not in [x['cod_art'] for x in catalog_suggestions]:
+                                catalog_suggestions.append(m)
+                                
+                catalog_context = "\n".join([
+                    f"- SKU `{m['cod_art']}` — {m['descrizione_articolo']} (€ {m.get('prezzo_indicativo', '0')} / {m.get('um', 'Kg')}) | Imballo: {m.get('unita_imballi', 'N/D')}"
+                    for m in catalog_suggestions[:15]
+                ])
+                
+                prompt_food_cost = (
+                    f"Sei il Master Chef e Consulente di Menu Engineering di Italian Food Trading S.r.l. (Verona).\n"
+                    f"Esegui un'AUDIT TECNICA ed OTTIMIZZAZIONE DEL FOOD COST E GRAMMATURE per la seguente ricetta:\n\n"
+                    f"🍽️ PIATTO: '{st.session_state.recipe_name}' (Categoria: {st.session_state.recipe_category})\n"
+                    f"- Resa ricetta: {st.session_state.recipe_portions} porzione/i\n"
+                    f"- Costo Ingredienti Totale per porzione: € {summary['food_cost_per_portion']:.2f}\n"
+                    f"- Prezzo di Vendita a Menu: € {summary['actual_selling_price_gross']:.2f} (IVA 10% inclusa) -> Netto: € {summary['actual_selling_price_net']:.2f}\n"
+                    f"- Food Cost % Attuale: {summary['actual_food_cost_pct']:.1f}% (Margine Lordo per porzione: € {summary['gross_margin_per_portion']:.2f})\n\n"
+                    f"📋 DISTINTA BASE ATTUALE CON INCIDENZA % SUI COSTI:\n"
+                    f"{items_breakdown_text}\n\n"
+                    f"📦 REFERENZE REALI DISPONIBILI NEL CATALOGO IFT PER SOSTITUZIONI/OTTIMIZZAZIONI:\n"
+                    f"{catalog_context}\n\n"
+                    f"STRUTTURA LA TUA CONSULENZA IN 4 SEZIONI RIGOROSE IN FORMATO MARKDOWN:\n"
+                    f"1. 🔍 **Diagnosi Criticità & Incidenza Costi**: Individua con precisione gli ingredienti che incidono maggiormente sul costo complessivo e le inefficienze di porzionamento.\n"
+                    f"2. ⚖️ **Ribilanciamento Grammature & Tagli di Resa**: Rivedi e calibra nel dettaglio le grammature consigliate per porzione (es. calibrazione grammi per pizza/piatto) per abbattere lo spreco mantenendo inalterata la palatabilità, la ricchezza visiva e la soddisfazione del cliente.\n"
+                    f"3. 🔄 **Proposte di Sostituzione con SKU Reali IFT a Maggiore Resa**: Proponi alternative concrete dal listino IFT (indicando obbligatoriamente il codice SKU esatto, la descrizione ufficiale e il Prezzo Soglia), spiegando il risparmio economico o la migliore tenuta in cottura.\n"
+                    f"4. 📈 **Quadro Finanziario Comparato (Prima vs Dopo)**:\n"
+                    f"   - Food Cost per porzione: da € {summary['food_cost_per_portion']:.2f} a € [Nuovo Costo Stimato]\n"
+                    f"   - Incidenza Food Cost %: da {summary['actual_food_cost_pct']:.1f}% a [Nuovo %]\n"
+                    f"   - Aumento Margine di Contribuzione per piatto (€) e stima di maggior profitto annuo per il locale (su 30 coperti/giorno x 300 giorni).\n\n"
+                    f"REGOLA TASSATIVA AZIENDALE: Cita ESCLUSIVAMENTE codici SKU reali e prodotti presenti nel catalogo Italian Food Trading S.r.l. Non inventare mai codici SKU o ingredienti non a magazzino."
+                )
+                
+                ai_res = ai_assistant.generate_ai_response(
+                    messages=[{"role": "user", "content": prompt_food_cost}],
+                    current_product=None,
+                    api_key=user_api_key if user_api_key else env_api_key,
+                    model_name=model_choice,
+                    enable_web_search=enable_web_search
+                )
+                
+                st.session_state.food_cost_ai_analysis = ai_res["text"]
+                # Also record in chat history
+                st.session_state.messages.append({"role": "user", "content": f"Ottimizzazione Food Cost ricetta '{st.session_state.recipe_name}'"})
+                st.session_state.messages.append({"role": "assistant", "content": ai_res["text"]})
+                st.rerun()
                 
     with act_col3:
         if st.button("🗑️ Svuota Ricetta", use_container_width=True):
             st.session_state.recipe_ingredients = []
+            st.session_state.food_cost_ai_analysis = None
             st.toast("Ricetta svuotata!")
             st.rerun()
+
+    # -------------------------------------------------------------
+    # 8. AI FOOD COST OPTIMIZATION REPORT DISPLAY
+    # -------------------------------------------------------------
+    if st.session_state.get("food_cost_ai_analysis"):
+        st.write("")
+        st.markdown("---")
+        st.markdown("""
+        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-left:5px solid #16A34A; padding:18px 20px; border-radius:12px; margin-top:12px; margin-bottom:12px;">
+            <div style="font-weight:800; font-size:1.15rem; color:#0F172A; display:flex; align-items:center; gap:8px;">
+                <span>🤖 Perizia di Ottimizzazione Food Cost & Ingegneria del Menu:</span>
+            </div>
+            <div style="font-size:0.85rem; color:#475569; margin-top:4px;">
+                Analisi generata in tempo reale con bilanciamento grammature, identificazione sprechi e alternative a listino IFT.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown(st.session_state.food_cost_ai_analysis)
