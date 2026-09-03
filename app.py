@@ -1571,12 +1571,12 @@ with tab_compare:
                     "4. 💡 **Consiglio di Vendita per l'Agente**: A quale specifica tipologia di locale/chef proporre ciascun articolo (es. Pizzeria Gourmet vs Ristorante Tradizionale vs Bistrot) per massimizzare la soddisfazione del cliente."
                 )
                 
-                analysis_res = ai_assistant.get_chat_response(
+                analysis_res = ai_assistant.generate_ai_response(
                     messages=[{"role": "user", "content": full_compare_prompt}],
-                    focused_product=None,
+                    current_product=None,
                     api_key=user_api_key if user_api_key else env_api_key,
                     model_name=model_choice,
-                    enable_grounding=enable_grounding
+                    enable_web_search=enable_grounding
                 )
                 st.session_state.compare_ai_analysis = analysis_res["text"]
                 st.rerun()
