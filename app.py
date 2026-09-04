@@ -439,6 +439,58 @@ products = database.search_products(
     limit=None
 )
 
+# Global product list for dropdown selectors & flyer
+all_prods = database.get_all_products_basic()
+prod_options = ["-- Nessun Prodotto Selezionato --"] + [
+    f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+    for p in all_prods
+]
+sku_to_opt = {p['cod_art']: f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})" for p in all_prods}
+
+def on_flyer_slot_select(idx):
+    sel_val = st.session_state.get(f"flyer_sel_{idx}", "")
+    if not sel_val or sel_val.startswith("--"):
+        st.session_state.flyer_slots[idx] = {
+            "cod_art": "",
+            "descrizione_articolo": "",
+            "um": "Kg",
+            "prezzo": 0.0,
+            "descrizione_commerciale": "",
+            "foto_path": ""
+        }
+        st.session_state[f"flyer_price_{idx}"] = 0.0
+        st.session_state[f"flyer_desc_{idx}"] = ""
+    else:
+        sku = sel_val.split(" — ")[0].strip()
+        prod_obj = database.get_product_by_code(sku)
+        if prod_obj:
+            raw_p = str(prod_obj.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+            try:
+                p_val = float(raw_p) if raw_p else 0.0
+            except (ValueError, TypeError):
+                p_val = 0.0
+            raw_desc = prod_obj.get('descrizione_commerciale', '') or ''
+            clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
+            if len(clean_d) > 105:
+                clean_d = clean_d[:102].strip() + "..."
+            foto = resolve_file(prod_obj.get('foto_path'), prod_obj.get('foto_filename'), config.FOTO_DIR, sku=sku)
+            st.session_state.flyer_slots[idx] = {
+                "cod_art": sku,
+                "descrizione_articolo": prod_obj.get('descrizione_articolo', ''),
+                "um": prod_obj.get('um', 'Kg') or 'Kg',
+                "prezzo": p_val,
+                "descrizione_commerciale": clean_d,
+                "foto_path": foto or ""
+            }
+            st.session_state[f"flyer_price_{idx}"] = p_val
+            st.session_state[f"flyer_desc_{idx}"] = clean_d
+
+def on_flyer_price_change(idx):
+    st.session_state.flyer_slots[idx]["prezzo"] = float(st.session_state.get(f"flyer_price_{idx}", 0.0))
+
+def on_flyer_desc_change(idx):
+    st.session_state.flyer_slots[idx]["descrizione_commerciale"] = st.session_state.get(f"flyer_desc_{idx}", "")
+
 # Tabs Definition
 quote_count = len(st.session_state.quote_items)
 quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
@@ -583,7 +635,7 @@ with tab_catalog:
                             st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
 
                     with btn_col4:
-                        if st.button("📄 Aggiungi a Volantino", use_container_width=True, help="Aggiungi questo articolo a uno slot del Volantino promozionale A4"):
+                        if st.button("📄 Aggiungi a Volantino", use_container_width=True, key=f"btn_add_flyer_{selected_sku}", help="Aggiungi questo articolo a uno slot del Volantino promozionale A4"):
                             empty_idx = -1
                             for idx_s, slt in enumerate(st.session_state.flyer_slots):
                                 if not slt.get("cod_art"):
@@ -602,6 +654,8 @@ with tab_catalog:
                                 if len(clean_d) > 105:
                                     clean_d = clean_d[:102].strip() + "..."
                                 foto_res = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, sku=selected_sku)
+                                
+                                # 1. Update flyer_slots
                                 st.session_state.flyer_slots[empty_idx] = {
                                     "cod_art": selected_sku,
                                     "descrizione_articolo": current_prod.get('descrizione_articolo', ''),
@@ -610,12 +664,13 @@ with tab_catalog:
                                     "descrizione_commerciale": clean_d,
                                     "foto_path": foto_res or ""
                                 }
-                                if f"flyer_sel_{empty_idx}" in st.session_state:
-                                    del st.session_state[f"flyer_sel_{empty_idx}"]
-                                if f"flyer_price_{empty_idx}" in st.session_state:
-                                    del st.session_state[f"flyer_price_{empty_idx}"]
-                                if f"flyer_desc_{empty_idx}" in st.session_state:
-                                    del st.session_state[f"flyer_desc_{empty_idx}"]
+                                
+                                # 2. Directly sync widget state in session_state
+                                opt_str = sku_to_opt.get(selected_sku, f"{selected_sku} — {current_prod.get('descrizione_articolo', '')}")
+                                st.session_state[f"flyer_sel_{empty_idx}"] = opt_str
+                                st.session_state[f"flyer_price_{empty_idx}"] = p_val
+                                st.session_state[f"flyer_desc_{empty_idx}"] = clean_d
+                                
                                 st.toast(f"✅ {selected_sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino Offerte'.")
                                 st.rerun()
 
@@ -1908,19 +1963,11 @@ with tab_flyer:
                     "descrizione_commerciale": "",
                     "foto_path": ""
                 }
-                for k in [f"flyer_sel_{s_idx}", f"flyer_price_{s_idx}", f"flyer_desc_{s_idx}"]:
-                    if k in st.session_state:
-                        del st.session_state[k]
+                st.session_state[f"flyer_sel_{s_idx}"] = "-- Nessun Prodotto Selezionato --"
+                st.session_state[f"flyer_price_{s_idx}"] = 0.0
+                st.session_state[f"flyer_desc_{s_idx}"] = ""
             st.toast("🧹 Tutti i 6 slot del volantino sono stati svuotati!")
             st.rerun()
-
-    # Product list for slot selectors
-    all_prods = database.get_all_products_basic()
-    prod_options = ["-- Nessun Prodotto Selezionato --"] + [
-        f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
-        for p in all_prods
-    ]
-    sku_to_opt = {p['cod_art']: f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})" for p in all_prods}
 
     st.markdown("##### 🎯 Configura i 6 Slot Promozionali (2 Colonne × 3 Righe):")
 
@@ -1932,6 +1979,16 @@ with tab_flyer:
             slot = st.session_state.flyer_slots[slot_num]
             pos_label = f"Riga {row_idx + 1}, {'Colonna Sinistra' if c_idx == 0 else 'Colonna Destra'}"
             
+            # Ensure widget keys are synchronized in session_state
+            curr_sku = slot.get("cod_art", "")
+            expected_opt = sku_to_opt.get(curr_sku, "-- Nessun Prodotto Selezionato --")
+            if f"flyer_sel_{slot_num}" not in st.session_state or (curr_sku and not st.session_state[f"flyer_sel_{slot_num}"].startswith(f"{curr_sku} —")):
+                st.session_state[f"flyer_sel_{slot_num}"] = expected_opt
+            if f"flyer_price_{slot_num}" not in st.session_state:
+                st.session_state[f"flyer_price_{slot_num}"] = float(slot.get("prezzo", 0.0))
+            if f"flyer_desc_{slot_num}" not in st.session_state:
+                st.session_state[f"flyer_desc_{slot_num}"] = slot.get("descrizione_commerciale", "")
+
             with col:
                 with st.container(border=True):
                     # Header row inside card container
@@ -1952,82 +2009,34 @@ with tab_flyer:
                                     "descrizione_commerciale": "",
                                     "foto_path": ""
                                 }
-                                for k in [f"flyer_sel_{slot_num}", f"flyer_price_{slot_num}", f"flyer_desc_{slot_num}"]:
-                                    if k in st.session_state:
-                                        del st.session_state[k]
+                                st.session_state[f"flyer_sel_{slot_num}"] = "-- Nessun Prodotto Selezionato --"
+                                st.session_state[f"flyer_price_{slot_num}"] = 0.0
+                                st.session_state[f"flyer_desc_{slot_num}"] = ""
                                 st.rerun()
 
-                    # Dropdown selector
-                    current_sku = slot.get("cod_art", "")
-                    default_opt = sku_to_opt.get(current_sku, "-- Nessun Prodotto Selezionato --")
-                    try:
-                        sel_idx = prod_options.index(default_opt)
-                    except ValueError:
-                        sel_idx = 0
-                        
-                    sel_key = f"flyer_sel_{slot_num}"
-                    selected_choice = st.selectbox(
+                    # Dropdown selector with on_change
+                    st.selectbox(
                         f"Seleziona Articolo per Slot {slot_num + 1}",
                         options=prod_options,
-                        index=sel_idx,
-                        key=sel_key,
+                        key=f"flyer_sel_{slot_num}",
+                        on_change=on_flyer_slot_select,
+                        args=(slot_num,),
                         label_visibility="collapsed"
                     )
-
-                    # Check if changed via dropdown
-                    chosen_sku = selected_choice.split(" — ")[0].strip() if not selected_choice.startswith("--") else ""
-                    if chosen_sku != current_sku:
-                        if not chosen_sku:
-                            st.session_state.flyer_slots[slot_num] = {
-                                "cod_art": "",
-                                "descrizione_articolo": "",
-                                "um": "Kg",
-                                "prezzo": 0.0,
-                                "descrizione_commerciale": "",
-                                "foto_path": ""
-                            }
-                            if f"flyer_price_{slot_num}" in st.session_state:
-                                del st.session_state[f"flyer_price_{slot_num}"]
-                            if f"flyer_desc_{slot_num}" in st.session_state:
-                                del st.session_state[f"flyer_desc_{slot_num}"]
-                        else:
-                            prod_obj = database.get_product_by_code(chosen_sku)
-                            if prod_obj:
-                                raw_p = str(prod_obj.get('prezzo_indicativo', '0')).replace(',', '.').strip()
-                                try:
-                                    p_val = float(raw_p) if raw_p else 0.0
-                                except (ValueError, TypeError):
-                                    p_val = 0.0
-                                raw_desc = prod_obj.get('descrizione_commerciale', '') or ''
-                                clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
-                                if len(clean_d) > 105:
-                                    clean_d = clean_d[:102].strip() + "..."
-                                foto = resolve_file(prod_obj.get('foto_path'), prod_obj.get('foto_filename'), config.FOTO_DIR, sku=chosen_sku)
-                                st.session_state.flyer_slots[slot_num] = {
-                                    "cod_art": chosen_sku,
-                                    "descrizione_articolo": prod_obj.get('descrizione_articolo', ''),
-                                    "um": prod_obj.get('um', 'Kg') or 'Kg',
-                                    "prezzo": p_val,
-                                    "descrizione_commerciale": clean_d,
-                                    "foto_path": foto or ""
-                                }
-                                st.session_state[f"flyer_price_{slot_num}"] = p_val
-                                st.session_state[f"flyer_desc_{slot_num}"] = clean_d
-                        st.rerun()
 
                     # Inputs if product assigned
                     if slot.get("cod_art"):
                         p_c1, p_c2 = st.columns([1.2, 1])
                         with p_c1:
-                            new_price = st.number_input(
+                            st.number_input(
                                 f"Prezzo Offerta (€/{slot.get('um', 'Kg')})",
                                 min_value=0.0,
-                                value=float(slot.get("prezzo", 0.0)),
                                 step=0.10,
                                 format="%.2f",
-                                key=f"flyer_price_{slot_num}"
+                                key=f"flyer_price_{slot_num}",
+                                on_change=on_flyer_price_change,
+                                args=(slot_num,)
                             )
-                            st.session_state.flyer_slots[slot_num]["prezzo"] = new_price
                         with p_c2:
                             foto = slot.get("foto_path")
                             if foto and os.path.exists(foto):
@@ -2035,14 +2044,14 @@ with tab_flyer:
                             else:
                                 st.markdown("<div style='margin-top:28px; color:#94A3B8; font-size:0.82rem;'>📷 Nessuna foto</div>", unsafe_allow_html=True)
 
-                        new_desc = st.text_area(
+                        st.text_area(
                             "Descrizione Commerciale Sintetica (max 2 righe):",
-                            value=slot.get("descrizione_commerciale", ""),
                             height=65,
                             key=f"flyer_desc_{slot_num}",
+                            on_change=on_flyer_desc_change,
+                            args=(slot_num,),
                             help="Brevissima descrizione da stampare nel volantino sotto il titolo."
                         )
-                        st.session_state.flyer_slots[slot_num]["descrizione_commerciale"] = new_desc
                     else:
                         st.caption("ℹ️ Slot vuoto. Assegna un articolo o usa '📄 Aggiungi a Volantino' dalla Scheda Prodotto.")
 
