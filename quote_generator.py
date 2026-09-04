@@ -419,10 +419,10 @@ def generate_whatsapp_message(quote_data: Dict[str, Any]) -> str:
 
 
 def get_whatsapp_url(quote_data: Dict[str, Any], phone_number: str = "") -> str:
-    """Generates a wa.me click-to-chat URL with the encoded quote text."""
+    """Generates a direct api.whatsapp.com click-to-chat URL preserving UTF-8 emojis."""
     msg = generate_whatsapp_message(quote_data)
     encoded = urllib.parse.quote(msg)
     clean_phone = "".join(filter(str.isdigit, phone_number))
     if clean_phone:
-        return f"https://wa.me/{clean_phone}?text={encoded}"
-    return f"https://wa.me/?text={encoded}"
+        return f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded}"
+    return f"https://api.whatsapp.com/send?text={encoded}"

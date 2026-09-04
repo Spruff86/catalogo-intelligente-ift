@@ -165,9 +165,9 @@ def build_flash_offer_message(
     return "\n".join(lines)
 
 def get_flash_offer_url(message: str, phone: str = "") -> str:
-    """Encodes message and returns a click-to-chat wa.me URL."""
+    """Encodes message and returns a direct api.whatsapp.com URL preserving UTF-8 emojis without 302 redirect corruption."""
     encoded = urllib.parse.quote(message)
     clean_phone = "".join(filter(str.isdigit, phone))
     if clean_phone:
-        return f"https://wa.me/{clean_phone}?text={encoded}"
-    return f"https://wa.me/?text={encoded}"
+        return f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded}"
+    return f"https://api.whatsapp.com/send?text={encoded}"

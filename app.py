@@ -934,7 +934,7 @@ with tab_quote:
             # Build URL using the edited text
             clean_phone = "".join(filter(str.isdigit, cust_phone))
             encoded_text = urllib.parse.quote(edited_wa_text)
-            wa_url = f"https://wa.me/{clean_phone}?text={encoded_text}" if clean_phone else f"https://wa.me/?text={encoded_text}"
+            wa_url = f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded_text}" if clean_phone else f"https://api.whatsapp.com/send?text={encoded_text}"
 
             btn_pdf_col, btn_wa_col, btn_clr_col = st.columns([1.5, 1.5, 1])
             
