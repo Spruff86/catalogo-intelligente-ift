@@ -230,13 +230,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Helper to resolve image/PDF paths across Local and Cloud
-def resolve_file(stored_path: str, filename: str, fallback_dir: Path) -> Optional[str]:
+def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str = "") -> Optional[str]:
     if stored_path and os.path.exists(stored_path):
         return stored_path
     if filename and fallback_dir.exists():
         candidate = fallback_dir / filename
         if candidate.exists():
             return str(candidate)
+    if sku and fallback_dir.exists():
+        for ext in [".jpg", ".jpeg", ".png", ".JPG", ".PNG"]:
+            candidate = fallback_dir / f"{sku}{ext}"
+            if candidate.exists():
+                return str(candidate)
     return None
 
 # Initialize database if needed
@@ -1678,36 +1683,138 @@ with tab_flash:
             st.session_state.flash_offer_last_sig = current_sig
             st.session_state["wa_flash_editor"] = fresh_message
 
-        # 4. Message Preview, Copy & WhatsApp Send
+        # 4. Message Preview, Product Photo & WhatsApp Send
         st.write("")
-        st.markdown("##### 💬 4. Anteprima Messaggio WhatsApp (Modificabile):")
-        st.caption("Puoi perfezionare o personalizzare il testo prima di inviarlo o copiarlo:")
-        
-        edited_flash_text = st.text_area(
-            "Modifica Testo Messaggio Offerta",
-            height=260,
-            key="wa_flash_editor"
-        )
+        st.markdown("##### 💬 4. Anteprima Messaggio WhatsApp & Foto Prodotto:")
+        st.caption("Verifica il messaggio e la foto ufficiale prima di inviarli o copiarli:")
 
-        w_act1, w_act2 = st.columns([1.2, 1])
-        with w_act1:
-            st.markdown("##### 📋 Copia Testo in 1 Click:")
+        col_msg, col_photo = st.columns([1.7, 1.3])
+        
+        with col_msg:
+            st.markdown("###### 📝 Testo Messaggio Offerta (Modificabile):")
+            edited_flash_text = st.text_area(
+                "Modifica Testo Messaggio Offerta",
+                height=270,
+                key="wa_flash_editor",
+                label_visibility="collapsed"
+            )
+            st.markdown("###### 📋 Copia Testo:")
             st.code(edited_flash_text, language="markdown")
+
+        with col_photo:
+            st.markdown("###### 📸 Foto Ufficiale Articolo:")
+            flash_img_path = resolve_file(
+                flash_prod.get('foto_path'), 
+                flash_prod.get('foto_filename'), 
+                config.FOTO_DIR, 
+                sku=flash_prod.get('cod_art', '')
+            )
             
-        with w_act2:
-            st.markdown("##### 📲 Invia Direttamente al Cliente:")
-            wa_url = whatsapp_offer_generator.get_flash_offer_url(edited_flash_text, st.session_state.flash_offer_phone)
-            st.markdown(f"""
-            <div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:10px; padding:16px; text-align:center;">
-                <div style="font-size:0.92rem; color:#166534; font-weight:700; margin-bottom:10px;">
-                    Pronto per l'invio istantaneo:
+            if flash_img_path and os.path.exists(flash_img_path):
+                st.image(flash_img_path, use_container_width=True)
+                
+                with open(flash_img_path, "rb") as img_f:
+                    img_bytes = img_f.read()
+                
+                img_ext = os.path.splitext(flash_img_path)[1].lower()
+                mime_type = "image/png" if img_ext == ".png" else "image/jpeg"
+                img_filename = os.path.basename(flash_img_path)
+                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                
+                st.download_button(
+                    label="📥 Scarica Foto per WhatsApp",
+                    data=img_bytes,
+                    file_name=img_filename,
+                    mime=mime_type,
+                    use_container_width=True,
+                    help="Scarica l'immagine in alta definizione per allegarla su WhatsApp"
+                )
+                
+                # Copy image to clipboard button
+                copy_img_html = f"""
+                <div style="margin-top:6px;">
+                    <button id="copy-img-btn" onclick="copyImageToClipboard()" style="
+                        width: 100%;
+                        background: #F8FAFC;
+                        color: #0F172A;
+                        border: 1px solid #CBD5E1;
+                        padding: 9px 12px;
+                        border-radius: 8px;
+                        font-weight: 700;
+                        font-size: 0.88rem;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        transition: background 0.2s;
+                    " onmouseover="this.style.background='#E2E8F0'" onmouseout="this.style.background='#F8FAFC'">
+                        📋 Copia Immagine negli Appunti
+                    </button>
+                    <div id="copy-msg" style="display:none; font-size:0.8rem; color:#16A34A; font-weight:700; text-align:center; margin-top:6px;">
+                        ✅ Foto copiata! In WhatsApp premi Incolla (Cmd+V)
+                    </div>
                 </div>
-                <div style="font-size:0.82rem; color:#15803D;">
-                    {"Destinatario: <b>" + st.session_state.flash_offer_client + "</b> " + (f"({st.session_state.flash_offer_phone})" if st.session_state.flash_offer_phone else "") if (st.session_state.flash_offer_client or st.session_state.flash_offer_phone) else "Pronto per la condivisione diretta o copia rapida"}
+                <script>
+                async function copyImageToClipboard() {{
+                    try {{
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.src = 'data:{mime_type};base64,{img_b64}';
+                        img.onload = function() {{
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.naturalWidth;
+                            canvas.height = img.naturalHeight;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            canvas.toBlob(async function(blob) {{
+                                try {{
+                                    await navigator.clipboard.write([
+                                        new ClipboardItem({{ 'image/png': blob }})
+                                    ]);
+                                    const m = document.getElementById('copy-msg');
+                                    m.style.display = 'block';
+                                    setTimeout(() => {{ m.style.display = 'none'; }}, 4000);
+                                }} catch(e) {{
+                                    alert('Copia negli appunti non supportata dal browser. Usa il tasto "Scarica Foto"!');
+                                }}
+                            }}, 'image/png');
+                        }};
+                    }} catch(err) {{
+                        alert('Copia negli appunti non supportata dal browser. Usa "Scarica Foto"!');
+                    }}
+                }}
+                </script>
+                """
+                st.components.v1.html(copy_img_html, height=78)
+            else:
+                st.info("ℹ️ Nessuna foto HD associata a questo articolo a listino.")
+
+        # Bottom Bar: WhatsApp direct link + instructions
+        st.write("")
+        wa_url = whatsapp_offer_generator.get_flash_offer_url(edited_flash_text, st.session_state.flash_offer_phone)
+        
+        info_dest = f"Destinatario: <b>{st.session_state.flash_offer_client}</b>" if st.session_state.flash_offer_client else "Offerta pronta per la condivisione"
+        info_phone = f" ({st.session_state.flash_offer_phone})" if st.session_state.flash_offer_phone else ""
+        
+        st.markdown(f"""
+        <div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:12px; padding:16px 20px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <div style="font-size:0.95rem; color:#166534; font-weight:800;">
+                        📲 Pronto per l'invio su WhatsApp Web / Desktop / Mobile
+                    </div>
+                    <div style="font-size:0.84rem; color:#15803D; margin-top:2px;">
+                        {info_dest}{info_phone}
+                    </div>
+                </div>
+                <div style="font-size:0.8rem; color:#166534; background:#DCFCE7; padding:4px 10px; border-radius:6px; font-weight:600;">
+                    💡 Copia la foto (o scaricala) e incolla (Cmd+V) su WhatsApp per inviarla insieme al testo!
                 </div>
             </div>
-            """, unsafe_allow_html=True)
-            st.write("")
-            st.link_button("📲 Invia Offerta su WhatsApp", url=wa_url, type="primary", use_container_width=True)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.link_button("📲 Invia Offerta su WhatsApp", url=wa_url, type="primary", use_container_width=True)
 
 
