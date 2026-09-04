@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import urllib.parse
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from PIL import Image as PILImage
@@ -339,3 +340,69 @@ def generate_weekly_flyer_pdf(
     # Build document
     doc.build(elements)
     return buffer.getvalue()
+
+
+def generate_flyer_whatsapp_message(
+    slots: List[Dict[str, Any]],
+    validity_dates: str,
+    client_name: str = ""
+) -> str:
+    """
+    Generates an engaging, professional promotional WhatsApp message
+    listing the weekly flyer offer items with emojis, SKU, prices and descriptions.
+    """
+    lines = [
+        "🇮🇹 *ITALIAN FOOD TRADING S.r.l.*",
+        "⚡ *OFFERTE LAMPO DELLA SETTIMANA*",
+        f"📅 *Validità:* {validity_dates.strip()}"
+    ]
+    if client_name and client_name.strip():
+        lines.append(f"👤 Destinatario: *{client_name.strip()}*")
+
+    lines.append("")
+    lines.append("Gentile Chef, ti segnaliamo le opportunità esclusive selezionate per questa settimana:")
+    lines.append("")
+
+    active_items = [s for s in slots if s and s.get("cod_art")]
+    number_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+
+    for idx, item in enumerate(active_items):
+        num_emoji = number_emojis[idx] if idx < len(number_emojis) else f"{idx+1}."
+        sku = item.get("cod_art", "")
+        name = item.get("descrizione_articolo", "").strip()
+        um = item.get("um", "Kg") or "Kg"
+        raw_p = item.get("prezzo", 0)
+        try:
+            p_val = float(str(raw_p).replace('€', '').replace(',', '.').strip())
+            price_str = f"€ {p_val:.2f}"
+        except (ValueError, TypeError):
+            price_str = f"€ {raw_p}"
+
+        desc = (item.get("descrizione_commerciale", "") or "").strip()
+        # Clean Excel artifacts
+        desc = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', desc).strip()
+
+        lines.append(f"{num_emoji} *{name}*")
+        lines.append(f"   🔖 Cod. Art.: `{sku}`")
+        lines.append(f"   🏷️ Prezzo Offerta: *{price_str} / {um}*")
+        if desc:
+            lines.append(f"   📝 _{desc}_")
+        lines.append("")
+
+    lines.append("⚖️ _Prezzi netti riservati Ho.Re.Ca • Salvo esaurimento scorte._")
+    lines.append("📞 Rispondi direttamente a questo messaggio per bloccare subito la fornitura!")
+    lines.append("📎 _In allegato trovi il volantino grafico ufficiale in formato PDF._")
+
+    return "\n".join(lines)
+
+
+def get_flyer_whatsapp_url(message: str, phone_number: str = "") -> str:
+    """
+    Generates a direct api.whatsapp.com click-to-chat URL preserving UTF-8 emojis.
+    """
+    encoded = urllib.parse.quote(message)
+    clean_phone = "".join(filter(str.isdigit, phone_number))
+    if clean_phone:
+        return f"https://api.whatsapp.com/send?phone={clean_phone}&text={encoded}"
+    return f"https://api.whatsapp.com/send?text={encoded}"
+

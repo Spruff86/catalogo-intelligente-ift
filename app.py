@@ -2118,7 +2118,7 @@ with tab_flyer:
     st.divider()
     active_count = sum(1 for s in st.session_state.flyer_slots if s.get("cod_art"))
     
-    down_c1, down_c2 = st.columns([3, 1.5])
+    down_c1, down_c2 = st.columns([3, 1.8])
     with down_c1:
         st.markdown(f"### 🖨️ Anteprima Volantino A4 ({active_count} / 6 Prodotti Inseriti)")
         st.caption(f"Validità in testata: **{flyer_validity_str}** • Layout A4 verticale calibrato al millimetro.")
@@ -2141,6 +2141,64 @@ with tab_flyer:
             use_container_width=True
         )
 
+    # --- SEZIONE INOLTRO WHATSAPP ---
+    st.write("")
+    with st.expander("📲 Inoltra Offerte Volantino su WhatsApp", expanded=True):
+        wa_c1, wa_c2 = st.columns([1.5, 1.5])
+        with wa_c1:
+            wa_client_name = st.text_input(
+                "Nome Cliente / Locale (opzionale):",
+                value=st.session_state.get("flyer_wa_client", ""),
+                placeholder="es. Ristorante Da Mario",
+                key="input_flyer_wa_client"
+            )
+            st.session_state["flyer_wa_client"] = wa_client_name
+        with wa_c2:
+            wa_client_phone = st.text_input(
+                "Numero WhatsApp (opzionale):",
+                value=st.session_state.get("flyer_wa_phone", ""),
+                placeholder="es. 3401234567 o +393401234567",
+                key="input_flyer_wa_phone"
+            )
+            st.session_state["flyer_wa_phone"] = wa_client_phone
+
+        # Auto-generate WhatsApp message
+        default_flyer_msg = weekly_flyer_generator.generate_flyer_whatsapp_message(
+            st.session_state.flyer_slots,
+            validity_dates=flyer_validity_str,
+            client_name=wa_client_name
+        )
+
+        edited_flyer_wa_msg = st.text_area(
+            "Messaggio Promozionale WhatsApp (personalizzabile):",
+            value=default_flyer_msg,
+            height=160,
+            key="flyer_wa_text_area",
+            help="Puoi modificare o personalizzare il testo del messaggio prima di inviarlo."
+        )
+
+        wa_flyer_url = weekly_flyer_generator.get_flyer_whatsapp_url(
+            edited_flyer_wa_msg,
+            phone_number=wa_client_phone
+        )
+
+        wa_b_col1, wa_b_col2 = st.columns([2.2, 2])
+        with wa_b_col1:
+            st.link_button(
+                "📲 Invia Offerte su WhatsApp",
+                url=wa_flyer_url,
+                type="primary",
+                use_container_width=True
+            )
+        with wa_b_col2:
+            st.markdown("""
+            <div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; padding:9px 13px; font-size:0.82rem; color:#166534; line-height:1.35;">
+                💡 <b>Come allegare il PDF:</b> Clicca su <i>📥 Scarica Volantino PDF</i>, poi clicca su <i>📲 Invia Offerte su WhatsApp</i> e trascina o allega (📎) il file PDF scaricato nella chat!
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.markdown("#### 👁️ Anteprima Grafica Documento A4")
     # Visual PDF Preview inside iframe
     b64_flyer = base64.b64encode(flyer_pdf_bytes).decode('utf-8')
     st.markdown(
