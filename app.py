@@ -297,7 +297,7 @@ if "flash_offer_sku" not in st.session_state:
 if "flash_offer_price" not in st.session_state:
     st.session_state.flash_offer_price = 0.0
 if "flash_offer_client" not in st.session_state:
-    st.session_state.flash_offer_client = "Chef"
+    st.session_state.flash_offer_client = ""
 if "flash_offer_phone" not in st.session_state:
     st.session_state.flash_offer_phone = ""
 if "flash_offer_style" not in st.session_state:
@@ -1502,7 +1502,7 @@ with tab_flash:
         if st.button("🧹 Nuova Offerta / Svuota", use_container_width=True, help="Ripulisce tutti i campi per creare una nuova offerta da zero"):
             st.session_state.flash_offer_sku = None
             st.session_state.flash_offer_price = 0.0
-            st.session_state.flash_offer_client = "Chef"
+            st.session_state.flash_offer_client = ""
             st.session_state.flash_offer_phone = ""
             st.session_state.flash_offer_style = "🔥 Opportunità Speciale"
             st.session_state.flash_offer_ai_pitch = ""
@@ -1607,9 +1607,9 @@ with tab_flash:
             
             with o_col1:
                 st.session_state.flash_offer_client = st.text_input(
-                    "Nome Cliente / Ristorante",
+                    "Nome Cliente / Ristorante (Opzionale)",
                     value=st.session_state.flash_offer_client,
-                    help="Es. Chef Marco, Pizzeria Vesuvio, Bistrot Centrale"
+                    placeholder="Es. Chef Marco, Pizzeria Vesuvio"
                 )
             with o_col2:
                 st.session_state.flash_offer_price = st.number_input(
@@ -1704,7 +1704,7 @@ with tab_flash:
                     Pronto per l'invio istantaneo:
                 </div>
                 <div style="font-size:0.82rem; color:#15803D;">
-                    Destinatario: <b>{st.session_state.flash_offer_client}</b> {f'({st.session_state.flash_offer_phone})' if st.session_state.flash_offer_phone else ''}
+                    {"Destinatario: <b>" + st.session_state.flash_offer_client + "</b> " + (f"({st.session_state.flash_offer_phone})" if st.session_state.flash_offer_phone else "") if (st.session_state.flash_offer_client or st.session_state.flash_offer_phone) else "Pronto per la condivisione diretta o copia rapida"}
                 </div>
             </div>
             """, unsafe_allow_html=True)
