@@ -555,7 +555,11 @@ with tab_catalog:
                             except (ValueError, TypeError):
                                 st.session_state.flash_offer_price = 0.0
                             st.session_state.flash_offer_ai_pitch = ""
-                            st.toast(f"✅ {selected_sku} impostato per Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
+                            if "wa_flash_editor" in st.session_state:
+                                del st.session_state["wa_flash_editor"]
+                            if "flash_prod_selector" in st.session_state:
+                                del st.session_state["flash_prod_selector"]
+                            st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
 
                     # --- ADD TO QUOTE QUICK SECTION ---
                     st.divider()
@@ -1516,38 +1520,36 @@ with tab_flash:
         for p in all_prods
     ]
     
-    default_idx = 0
-    if st.session_state.flash_offer_sku:
-        for idx, p in enumerate(all_prods, 1):
-            if p['cod_art'] == st.session_state.flash_offer_sku:
-                default_idx = idx
-                break
+    # Synchronize selector if flash_offer_sku was transferred from Tab 1
+    if st.session_state.get("flash_offer_sku"):
+        matching_opt = next((p for p in prod_options if p.startswith(f"{st.session_state.flash_offer_sku} —")), None)
+        if matching_opt:
+            st.session_state["flash_prod_selector"] = matching_opt
+    elif "flash_prod_selector" not in st.session_state:
+        st.session_state["flash_prod_selector"] = "-- Nessun Prodotto Selezionato --"
                 
     with st.container(border=True):
         st.markdown("##### 📦 1. Seleziona il Prodotto da Proporre:")
         chosen_p_str = st.selectbox(
             "Cerca referenza a listino (2.003 articoli IFT):",
             options=prod_options,
-            index=default_idx,
             key="flash_prod_selector"
         )
         
         if chosen_p_str == "-- Nessun Prodotto Selezionato --":
-            if st.session_state.flash_offer_sku is not None:
-                st.session_state.flash_offer_sku = None
-                st.session_state.flash_offer_price = 0.0
-                st.session_state.flash_offer_ai_pitch = ""
-                st.session_state.flash_offer_last_sig = ""
-                if "wa_flash_editor" in st.session_state:
-                    del st.session_state["wa_flash_editor"]
-                st.rerun()
+            st.session_state.flash_offer_sku = None
+            st.session_state.flash_offer_price = 0.0
+            st.session_state.flash_offer_ai_pitch = ""
+            st.session_state.flash_offer_last_sig = ""
+            if "wa_flash_editor" in st.session_state:
+                del st.session_state["wa_flash_editor"]
             flash_prod = None
         else:
             selected_flash_sku = chosen_p_str.split(" — ")[0].strip()
             flash_prod = database.get_product_by_code(selected_flash_sku)
             
             if flash_prod:
-                # If SKU changed, update default price
+                # If SKU changed via dropdown selection
                 if st.session_state.flash_offer_sku != selected_flash_sku:
                     st.session_state.flash_offer_sku = selected_flash_sku
                     try:
@@ -1556,6 +1558,8 @@ with tab_flash:
                     except (ValueError, TypeError):
                         st.session_state.flash_offer_price = 0.0
                     st.session_state.flash_offer_ai_pitch = ""
+                    if "wa_flash_editor" in st.session_state:
+                        del st.session_state["wa_flash_editor"]
                     st.rerun()
 
                 # Product preview mini-card
