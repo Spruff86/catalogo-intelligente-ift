@@ -11,6 +11,7 @@ import database
 import ai_assistant
 import quote_generator
 import food_cost_calculator
+import whatsapp_offer_generator
 import urllib.parse
 import re
 
@@ -290,6 +291,22 @@ if "recipe_ingredients" not in st.session_state:
 if "food_cost_ai_analysis" not in st.session_state:
     st.session_state.food_cost_ai_analysis = None
 
+# WhatsApp Flash Offer Session State
+if "flash_offer_sku" not in st.session_state:
+    st.session_state.flash_offer_sku = "A050922"
+if "flash_offer_price" not in st.session_state:
+    st.session_state.flash_offer_price = 11.19
+if "flash_offer_client" not in st.session_state:
+    st.session_state.flash_offer_client = "Chef"
+if "flash_offer_phone" not in st.session_state:
+    st.session_state.flash_offer_phone = ""
+if "flash_offer_style" not in st.session_state:
+    st.session_state.flash_offer_style = "🔥 Opportunità Speciale"
+if "flash_offer_ai_pitch" not in st.session_state:
+    st.session_state.flash_offer_ai_pitch = ""
+if "flash_offer_last_sig" not in st.session_state:
+    st.session_state.flash_offer_last_sig = ""
+
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
     st.markdown(f"""
@@ -408,11 +425,12 @@ products = database.search_products(
 quote_count = len(st.session_state.quote_items)
 quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
 
-tab_catalog, tab_chat, tab_quote, tab_foodcost = st.tabs([
+tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_flash = st.tabs([
     "📦 Scheda Prodotto & Catalogo", 
     "🤖 Studio Consulenza & Chat AI", 
     quote_tab_label,
-    "📊 Calcolatore Food Cost"
+    "📊 Calcolatore Food Cost",
+    "📲 Offerta WhatsApp Flash"
 ])
 
 # =========================================================================
@@ -501,7 +519,7 @@ with tab_catalog:
                     
                     # Action buttons in single clean row
                     st.write("")
-                    btn_col1, btn_col2 = st.columns([1, 1])
+                    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1.1])
                     with btn_col1:
                         if st.session_state.chat_focused_sku == selected_sku:
                             if st.button("❌ Rimuovi focus AI", use_container_width=True):
@@ -527,6 +545,17 @@ with tab_catalog:
                                 )
                         else:
                             st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
+
+                    with btn_col3:
+                        if st.button("📲 Offerta WhatsApp", use_container_width=True, help="Prepara un'offerta WhatsApp per questo articolo con presentazione e consigli"):
+                            st.session_state.flash_offer_sku = selected_sku
+                            try:
+                                raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                                st.session_state.flash_offer_price = float(raw_p) if raw_p else 0.0
+                            except (ValueError, TypeError):
+                                st.session_state.flash_offer_price = 0.0
+                            st.session_state.flash_offer_ai_pitch = ""
+                            st.toast(f"✅ {selected_sku} impostato per Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
 
                     # --- ADD TO QUOTE QUICK SECTION ---
                     st.divider()
@@ -1437,3 +1466,202 @@ with tab_foodcost:
                                     target_item["price_um"] = alt_um
                                     st.toast(f"✅ Sostituito '{old_name}' con '{alt_prod['cod_art']} - {alt_prod['descrizione_articolo']}'!")
                                     st.rerun()
+
+# =========================================================================
+# TAB 5: 📲 OFFERTA WHATSAPP FLASH
+# =========================================================================
+with tab_flash:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); color: white; padding: 22px 24px; border-radius: 14px; margin-bottom: 20px; border-left: 6px solid #25D366; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">
+                    📲 Generatore Offerta Rapida WhatsApp
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #94A3B8;">
+                    Crea in 3 secondi un messaggio commerciale accattivante con presentazione gastronomica, consiglio dello chef ed abbinamento culinario pronto all'invio.
+                </p>
+            </div>
+            <div style="background: rgba(37, 211, 102, 0.15); border: 1px solid rgba(37, 211, 102, 0.3); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; color: #25D366;">
+                WhatsApp 1-Click Ready ⚡
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 1. Product Selection
+    all_prods = database.get_all_products_basic()
+    
+    prod_options = [
+        f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+        for p in all_prods
+    ]
+    
+    default_idx = 0
+    if st.session_state.flash_offer_sku:
+        for idx, p in enumerate(all_prods):
+            if p['cod_art'] == st.session_state.flash_offer_sku:
+                default_idx = idx
+                break
+                
+    with st.container(border=True):
+        st.markdown("##### 📦 1. Seleziona il Prodotto da Proporre:")
+        chosen_p_str = st.selectbox(
+            "Cerca referenza a listino (2.003 articoli IFT):",
+            options=prod_options,
+            index=default_idx,
+            key="flash_prod_selector"
+        )
+        
+        selected_flash_sku = chosen_p_str.split(" — ")[0].strip()
+        flash_prod = database.get_product_by_code(selected_flash_sku)
+        
+        if flash_prod:
+            # If SKU changed, update default price
+            if st.session_state.flash_offer_sku != selected_flash_sku:
+                st.session_state.flash_offer_sku = selected_flash_sku
+                try:
+                    raw_p = str(flash_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                    st.session_state.flash_offer_price = float(raw_p) if raw_p else 0.0
+                except (ValueError, TypeError):
+                    st.session_state.flash_offer_price = 0.0
+                st.session_state.flash_offer_ai_pitch = ""
+                st.rerun()
+
+            # Product preview mini-card
+            p_c1, p_c2 = st.columns([1, 4])
+            with p_c1:
+                img_path = resolve_file(flash_prod.get('foto_path'), flash_prod.get('foto_filename'), config.FOTO_DIR)
+                if img_path and os.path.exists(img_path):
+                    try:
+                        st.image(img_path, use_container_width=True)
+                    except Exception:
+                        st.markdown("🖼️")
+                else:
+                    st.markdown("<div style='height:80px; display:flex; align-items:center; justify-content:center; background:#F1F5F9; border-radius:8px; font-size:2rem;'>📦</div>", unsafe_allow_html=True)
+                    
+            with p_c2:
+                st.markdown(f"**`{flash_prod['cod_art']}`** — **{flash_prod['descrizione_articolo']}**")
+                um_badge = flash_prod.get('um', 'Kg')
+                st.markdown(
+                    f"<span style='color:#15803D; font-weight:800;'>Prezzo Soglia: € {st.session_state.flash_offer_price:.2f} / {um_badge}</span> &nbsp;|&nbsp; "
+                    f"<span style='color:#64748B; font-size:0.85rem;'>Gruppo: {flash_prod.get('gruppo_art', 'N/D')}</span> &nbsp;|&nbsp; "
+                    f"<span style='color:#64748B; font-size:0.85rem;'>Ambiente: {flash_prod.get('ambiente_cons', 'N/D')}</span>",
+                    unsafe_allow_html=True
+                )
+                if flash_prod.get('unita_imballi'):
+                    st.caption(f"📦 Imballo: {flash_prod['unita_imballi']}")
+
+    # 2. Offer Parameters
+    with st.container(border=True):
+        st.markdown("##### ⚙️ 2. Dettagli Offerta & Destinatario:")
+        o_col1, o_col2, o_col3, o_col4 = st.columns([2, 1.5, 1.8, 1.8])
+        
+        with o_col1:
+            st.session_state.flash_offer_client = st.text_input(
+                "Nome Cliente / Ristorante",
+                value=st.session_state.flash_offer_client,
+                help="Es. Chef Marco, Pizzeria Vesuvio, Bistrot Centrale"
+            )
+        with o_col2:
+            st.session_state.flash_offer_price = st.number_input(
+                f"Prezzo Offerto (€/{flash_prod.get('um', 'Kg') if flash_prod else 'Kg'})",
+                min_value=0.0,
+                value=float(st.session_state.flash_offer_price),
+                step=0.10,
+                format="%.2f",
+                help="Prezzo riservato da comunicare nel messaggio."
+            )
+        with o_col3:
+            st.session_state.flash_offer_phone = st.text_input(
+                "N° WhatsApp (con prefisso)",
+                value=st.session_state.flash_offer_phone,
+                placeholder="393401234567",
+                help="Numero di cellulare con prefisso per invio diretto in 1 click."
+            )
+        with o_col4:
+            style_options = [
+                "🔥 Opportunità Speciale", 
+                "⭐ Offerta Esclusiva Riservata", 
+                "👨‍🍳 Consiglio dello Chef", 
+                "⚡ Promozione Flash della Settimana"
+            ]
+            cur_style_idx = style_options.index(st.session_state.flash_offer_style) if st.session_state.flash_offer_style in style_options else 0
+            st.session_state.flash_offer_style = st.selectbox(
+                "Tono / Occasione Messaggio",
+                options=style_options,
+                index=cur_style_idx
+            )
+
+    # 3. Culinary Presentation & Pairing Enhancement
+    with st.container(border=True):
+        p_hdr_col1, p_hdr_col2 = st.columns([3, 1.5])
+        with p_hdr_col1:
+            st.markdown("##### 👨‍🍳 3. Presentazione Gastronomica & Consiglio di Abbinamento:")
+            st.caption("Il testo include le peculiarità d'eccellenza dell'articolo e un consiglio gastronomico applicativo.")
+        with p_hdr_col2:
+            st.write("")
+            if st.button("✨ Rigenera con Chef AI (PDF)", use_container_width=True, help="Usa Gemini per analizzare la scheda tecnica PDF e generare un consiglio gourmet mirato"):
+                if flash_prod:
+                    with st.spinner("Estrazione dati scheda tecnica e redazione consiglio dello Chef..."):
+                        ai_pitch = whatsapp_offer_generator.generate_ai_pitch_and_pairing(
+                            product=flash_prod,
+                            api_key=user_api_key if user_api_key else env_api_key,
+                            model_name=model_choice
+                        )
+                        st.session_state.flash_offer_ai_pitch = ai_pitch
+                        st.toast("Consiglio ed abbinamento AI generati con successo!")
+                        st.rerun()
+
+    # Determine pitch text
+    if flash_prod:
+        active_pitch = st.session_state.flash_offer_ai_pitch if st.session_state.flash_offer_ai_pitch else whatsapp_offer_generator.generate_default_pitch_and_pairing(flash_prod)
+        agent_sign = st.session_state.quote_agent_name if st.session_state.quote_agent_name else "Italian Food Trading"
+        fresh_message = whatsapp_offer_generator.build_flash_offer_message(
+            product=flash_prod,
+            offer_price=st.session_state.flash_offer_price,
+            customer_name=st.session_state.flash_offer_client,
+            agent_name=agent_sign,
+            offer_style=st.session_state.flash_offer_style,
+            custom_pitch=active_pitch
+        )
+
+        # Detect if inputs changed to sync editor
+        current_sig = f"{flash_prod.get('cod_art')}_{st.session_state.flash_offer_price}_{st.session_state.flash_offer_client}_{st.session_state.flash_offer_style}_{hash(active_pitch)}_{agent_sign}"
+        if current_sig != st.session_state.flash_offer_last_sig or "wa_flash_editor" not in st.session_state:
+            st.session_state.flash_offer_last_sig = current_sig
+            st.session_state["wa_flash_editor"] = fresh_message
+
+        # 4. Message Preview, Copy & WhatsApp Send
+        st.write("")
+        st.markdown("##### 💬 4. Anteprima Messaggio WhatsApp (Modificabile):")
+        st.caption("Puoi perfezionare o personalizzare il testo prima di inviarlo o copiarlo:")
+        
+        edited_flash_text = st.text_area(
+            "Modifica Testo Messaggio Offerta",
+            value=st.session_state.get("wa_flash_editor", fresh_message),
+            height=260,
+            key="wa_flash_editor"
+        )
+
+        w_act1, w_act2 = st.columns([1.2, 1])
+        with w_act1:
+            st.markdown("##### 📋 Copia Testo in 1 Click:")
+            st.code(edited_flash_text, language="markdown")
+            
+        with w_act2:
+            st.markdown("##### 📲 Invia Direttamente al Cliente:")
+            wa_url = whatsapp_offer_generator.get_flash_offer_url(edited_flash_text, st.session_state.flash_offer_phone)
+            st.markdown(f"""
+            <div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:10px; padding:16px; text-align:center;">
+                <div style="font-size:0.92rem; color:#166534; font-weight:700; margin-bottom:10px;">
+                    Pronto per l'invio istantaneo:
+                </div>
+                <div style="font-size:0.82rem; color:#15803D;">
+                    Destinatario: <b>{st.session_state.flash_offer_client}</b> {f'({st.session_state.flash_offer_phone})' if st.session_state.flash_offer_phone else ''}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.write("")
+            st.link_button("📲 Invia Offerta su WhatsApp", url=wa_url, type="primary", use_container_width=True)
+
