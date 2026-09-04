@@ -1685,7 +1685,6 @@ with tab_flash:
         
         edited_flash_text = st.text_area(
             "Modifica Testo Messaggio Offerta",
-            value=st.session_state.get("wa_flash_editor", fresh_message),
             height=260,
             key="wa_flash_editor"
         )
