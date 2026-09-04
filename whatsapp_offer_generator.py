@@ -157,11 +157,6 @@ def build_flash_offer_message(
         f"🏷️ *Prezzo Offerto: € {offer_price:.2f} / {um}*",
     ]
     
-    if imballo:
-        lines.append(f"📦 Formato/Imballo: _{imballo}_")
-    if cons:
-        lines.append(f"🌡️ Conservazione: _{cons}_")
-        
     lines.append("")
     lines.append("✨ *PRESENTAZIONE & CONSIGLIO DI UTILIZZO:*")
     lines.append(pitch_text)
