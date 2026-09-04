@@ -9,6 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from datetime import datetime, timedelta
 import config
 
 def escape_xml(text: Any) -> str:
@@ -24,7 +25,8 @@ def escape_xml(text: Any) -> str:
 
 def generate_weekly_flyer_pdf(
     slots: List[Dict[str, Any]],
-    logo_path: Optional[str] = None
+    logo_path: Optional[str] = None,
+    validity_dates: Optional[str] = None
 ) -> bytes:
     """
     Generates a professional 1-page A4 vertical (portrait) PDF flyer
@@ -129,12 +131,27 @@ def generate_weekly_flyer_pdf(
             style_title
         )
 
+    if not validity_dates:
+        today = datetime.now().date()
+        m = today - timedelta(days=today.weekday())
+        s = m + timedelta(days=5)
+        mesi_it = {
+            1: 'GENNAIO', 2: 'FEBBRAIO', 3: 'MARZO', 4: 'APRILE', 5: 'MAGGIO', 6: 'GIUGNO',
+            7: 'LUGLIO', 8: 'AGOSTO', 9: 'SETTEMBRE', 10: 'OTTOBRE', 11: 'NOVEMBRE', 12: 'DICEMBRE'
+        }
+        if m.month == s.month and m.year == s.year:
+            validity_dates = f"DA LUNEDÌ {m.day} A SABATO {s.day} {mesi_it[s.month]} {s.year}"
+        elif m.year == s.year:
+            validity_dates = f"DA LUNEDÌ {m.day} {mesi_it[m.month]} A SABATO {s.day} {mesi_it[s.month]} {s.year}"
+        else:
+            validity_dates = f"DA LUNEDÌ {m.day} {mesi_it[m.month]} {m.year} A SABATO {s.day} {mesi_it[s.month]} {s.year}"
+
     header_text = [
         Paragraph('<b>OFFERTE LAMPO DELLA SETTIMANA</b>', style_title),
         Spacer(1, 2),
-        Paragraph('SELEZIONE ESCLUSIVA HO.RE.CA • PREZZI NETTI RISERVATI', style_sub),
+        Paragraph(f'<b>VALIDITÀ: {escape_xml(validity_dates)}</b>', style_sub),
         Spacer(1, 2),
-        Paragraph('Offerta valida fino ad esaurimento scorte • Ordini rapidi al tuo agente di zona', style_note)
+        Paragraph('Prezzi netti riservati Ho.Re.Ca • Salvo esaurimento scorte • Ordini al tuo agente', style_note)
     ]
 
     header_table = Table([[logo_element, header_text]], colWidths=[115, 432])

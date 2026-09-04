@@ -4,7 +4,7 @@ from PIL import Image
 from pathlib import Path
 from typing import Optional
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta, date
 
 import config
 import database
@@ -324,6 +324,13 @@ if "flyer_slots" not in st.session_state:
         }
         for _ in range(6)
     ]
+_today_ref = datetime.now().date()
+_cur_mon_init = _today_ref - timedelta(days=_today_ref.weekday())
+_cur_sat_init = _cur_mon_init + timedelta(days=5)
+if "flyer_date_start" not in st.session_state:
+    st.session_state.flyer_date_start = _cur_mon_init
+if "flyer_date_end" not in st.session_state:
+    st.session_state.flyer_date_end = _cur_sat_init
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -1969,6 +1976,58 @@ with tab_flyer:
             st.toast("🧹 Tutti i 6 slot del volantino sono stati svuotati!")
             st.rerun()
 
+    # Date Range Settings (Monday to Saturday)
+    _today_dt = datetime.now().date()
+    _cur_mon = _today_dt - timedelta(days=_today_dt.weekday())
+    _cur_sat = _cur_mon + timedelta(days=5)
+
+    with st.container(border=True):
+        d_col1, d_col2, d_col3 = st.columns([1.5, 1.5, 2.5])
+        with d_col1:
+            st.session_state.flyer_date_start = st.date_input(
+                "📅 Inizio Validità (Lunedì)",
+                value=st.session_state.flyer_date_start,
+                format="DD/MM/YYYY",
+                key="flyer_start_picker"
+            )
+        with d_col2:
+            st.session_state.flyer_date_end = st.date_input(
+                "📅 Fine Validità (Sabato)",
+                value=st.session_state.flyer_date_end,
+                format="DD/MM/YYYY",
+                key="flyer_end_picker"
+            )
+        with d_col3:
+            st.write("")
+            st.write("")
+            q_b1, q_b2 = st.columns(2)
+            with q_b1:
+                if st.button("⏪ Questa Settimana", use_container_width=True, help="Imposta la settimana corrente (Lunedì - Sabato)"):
+                    st.session_state.flyer_date_start = _cur_mon
+                    st.session_state.flyer_date_end = _cur_sat
+                    st.rerun()
+            with q_b2:
+                _next_mon = _cur_mon + timedelta(days=7)
+                _next_sat = _next_mon + timedelta(days=5)
+                if st.button("⏩ Prossima Settimana", use_container_width=True, help="Imposta la prossima settimana (Lunedì - Sabato)"):
+                    st.session_state.flyer_date_start = _next_mon
+                    st.session_state.flyer_date_end = _next_sat
+                    st.rerun()
+
+    # Calculate formatted validity string in Italian
+    mesi_it = {
+        1: 'GENNAIO', 2: 'FEBBRAIO', 3: 'MARZO', 4: 'APRILE', 5: 'MAGGIO', 6: 'GIUGNO',
+        7: 'LUGLIO', 8: 'AGOSTO', 9: 'SETTEMBRE', 10: 'OTTOBRE', 11: 'NOVEMBRE', 12: 'DICEMBRE'
+    }
+    m_dt = st.session_state.flyer_date_start
+    s_dt = st.session_state.flyer_date_end
+    if m_dt.month == s_dt.month and m_dt.year == s_dt.year:
+        flyer_validity_str = f"DA LUNEDÌ {m_dt.day} A SABATO {s_dt.day} {mesi_it[s_dt.month]} {s_dt.year}"
+    elif m_dt.year == s_dt.year:
+        flyer_validity_str = f"DA LUNEDÌ {m_dt.day} {mesi_it[m_dt.month]} A SABATO {s_dt.day} {mesi_it[s_dt.month]} {s_dt.year}"
+    else:
+        flyer_validity_str = f"DA LUNEDÌ {m_dt.day} {mesi_it[m_dt.month]} {m_dt.year} A SABATO {s_dt.day} {mesi_it[s_dt.month]} {s_dt.year}"
+
     st.markdown("##### 🎯 Configura i 6 Slot Promozionali (2 Colonne × 3 Righe):")
 
     # Render 3 rows of 2 columns
@@ -2062,12 +2121,13 @@ with tab_flyer:
     down_c1, down_c2 = st.columns([3, 1.5])
     with down_c1:
         st.markdown(f"### 🖨️ Anteprima Volantino A4 ({active_count} / 6 Prodotti Inseriti)")
-        st.caption("Il documento PDF viene generato in tempo reale ed è calibrato millimetricamente per una singola pagina A4 verticale.")
+        st.caption(f"Validità in testata: **{flyer_validity_str}** • Layout A4 verticale calibrato al millimetro.")
     
     logo_file = str(config.BASE_DIR / "ift_logo.png") if (config.BASE_DIR / "ift_logo.png").exists() else None
     flyer_pdf_bytes = weekly_flyer_generator.generate_weekly_flyer_pdf(
         st.session_state.flyer_slots,
-        logo_path=logo_file
+        logo_path=logo_file,
+        validity_dates=flyer_validity_str
     )
     
     with down_c2:
@@ -2075,7 +2135,7 @@ with tab_flyer:
         st.download_button(
             label="📥 Scarica Volantino PDF (A4)",
             data=flyer_pdf_bytes,
-            file_name=f"Volantino_Offerte_Lampo_IFT_{datetime.now().strftime('%Y%m%d')}.pdf",
+            file_name=f"Volantino_Offerte_Lampo_{m_dt.strftime('%Y%m%d')}_{s_dt.strftime('%Y%m%d')}.pdf",
             mime="application/pdf",
             type="primary",
             use_container_width=True
