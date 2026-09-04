@@ -1616,7 +1616,7 @@ with tab_flash:
     # Determine pitch text
     if flash_prod:
         active_pitch = st.session_state.flash_offer_ai_pitch if st.session_state.flash_offer_ai_pitch else whatsapp_offer_generator.generate_default_pitch_and_pairing(flash_prod)
-        agent_sign = st.session_state.quote_agent_name if st.session_state.quote_agent_name else "Italian Food Trading"
+        agent_sign = st.session_state.get("quote_customer", {}).get("agent_name", "Italian Food Trading")
         fresh_message = whatsapp_offer_generator.build_flash_offer_message(
             product=flash_prod,
             offer_price=st.session_state.flash_offer_price,
