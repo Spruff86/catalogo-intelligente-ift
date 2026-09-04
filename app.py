@@ -12,6 +12,7 @@ import ai_assistant
 import quote_generator
 import food_cost_calculator
 import whatsapp_offer_generator
+import weekly_flyer_generator
 import urllib.parse
 import re
 
@@ -311,6 +312,18 @@ if "flash_offer_ai_pitch" not in st.session_state:
     st.session_state.flash_offer_ai_pitch = ""
 if "flash_offer_last_sig" not in st.session_state:
     st.session_state.flash_offer_last_sig = ""
+if "flyer_slots" not in st.session_state:
+    st.session_state.flyer_slots = [
+        {
+            "cod_art": "",
+            "descrizione_articolo": "",
+            "um": "Kg",
+            "prezzo": 0.0,
+            "descrizione_commerciale": "",
+            "foto_path": ""
+        }
+        for _ in range(6)
+    ]
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -429,13 +442,16 @@ products = database.search_products(
 # Tabs Definition
 quote_count = len(st.session_state.quote_items)
 quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
+flyer_count = sum(1 for s in st.session_state.flyer_slots if s.get("cod_art"))
+flyer_tab_label = f"📄 Volantino Offerte ({flyer_count}/6)" if flyer_count > 0 else "📄 Volantino Offerte (0/6)"
 
-tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_flash = st.tabs([
+tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_flash, tab_flyer = st.tabs([
     "📦 Scheda Prodotto & Catalogo", 
     "🤖 Studio Consulenza & Chat AI", 
     quote_tab_label,
     "📊 Calcolatore Food Cost",
-    "📲 Offerta WhatsApp Flash"
+    "📲 Offerta WhatsApp Flash",
+    flyer_tab_label
 ])
 
 # =========================================================================
@@ -524,7 +540,7 @@ with tab_catalog:
                     
                     # Action buttons in single clean row
                     st.write("")
-                    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 1.1])
+                    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1, 1, 1, 1])
                     with btn_col1:
                         if st.session_state.chat_focused_sku == selected_sku:
                             if st.button("❌ Rimuovi focus AI", use_container_width=True):
@@ -565,6 +581,43 @@ with tab_catalog:
                             if "flash_prod_selector" in st.session_state:
                                 del st.session_state["flash_prod_selector"]
                             st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
+
+                    with btn_col4:
+                        if st.button("📄 Aggiungi a Volantino", use_container_width=True, help="Aggiungi questo articolo a uno slot del Volantino promozionale A4"):
+                            empty_idx = -1
+                            for idx_s, slt in enumerate(st.session_state.flyer_slots):
+                                if not slt.get("cod_art"):
+                                    empty_idx = idx_s
+                                    break
+                            if empty_idx == -1:
+                                st.warning("⚠️ Tutti i 6 slot del Volantino sono già occupati! Vai alla scheda '📄 Volantino Offerte' per liberare uno slot.")
+                            else:
+                                raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                                try:
+                                    p_val = float(raw_p) if raw_p else 0.0
+                                except (ValueError, TypeError):
+                                    p_val = 0.0
+                                raw_desc = current_prod.get('descrizione_commerciale', '') or ''
+                                clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
+                                if len(clean_d) > 105:
+                                    clean_d = clean_d[:102].strip() + "..."
+                                foto_res = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, sku=selected_sku)
+                                st.session_state.flyer_slots[empty_idx] = {
+                                    "cod_art": selected_sku,
+                                    "descrizione_articolo": current_prod.get('descrizione_articolo', ''),
+                                    "um": current_prod.get('um', 'Kg') or 'Kg',
+                                    "prezzo": p_val,
+                                    "descrizione_commerciale": clean_d,
+                                    "foto_path": foto_res or ""
+                                }
+                                if f"flyer_sel_{empty_idx}" in st.session_state:
+                                    del st.session_state[f"flyer_sel_{empty_idx}"]
+                                if f"flyer_price_{empty_idx}" in st.session_state:
+                                    del st.session_state[f"flyer_price_{empty_idx}"]
+                                if f"flyer_desc_{empty_idx}" in st.session_state:
+                                    del st.session_state[f"flyer_desc_{empty_idx}"]
+                                st.toast(f"✅ {selected_sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino Offerte'.")
+                                st.rerun()
 
                     # --- ADD TO QUOTE QUICK SECTION ---
                     st.divider()
@@ -1816,5 +1869,215 @@ with tab_flash:
         """, unsafe_allow_html=True)
         
         st.link_button("📲 Invia Offerta su WhatsApp", url=wa_url, type="primary", use_container_width=True)
+
+# =========================================================================
+# TAB 6: 📄 VOLANTINO OFFERTE LAMPO (A4 VERTICALE)
+# =========================================================================
+with tab_flyer:
+    # Header with Clear/Reset button
+    h_col1, h_col2 = st.columns([3.8, 1.2])
+    with h_col1:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: white; padding: 18px 22px; border-radius: 14px; margin-bottom: 16px; border-left: 6px solid #D97706; box-shadow: 0 4px 12px rgba(0,0,0,0.06);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.35rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">
+                        📄 Volantino Offerte Lampo della Settimana
+                    </h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94A3B8;">
+                        Componi un volantino promozionale A4 verticale ad alta risoluzione con 6 referenze (2 colonne × 3 righe), foto HD, prezzi offerta e descrizioni.
+                    </p>
+                </div>
+                <div style="background: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.4); padding: 5px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: 700; color: #F59E0B;">
+                    Layout A4 Portrait Vettoriale ⚡
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with h_col2:
+        st.write("")
+        st.write("")
+        if st.button("🧹 Svuota Tutti gli Slot", use_container_width=True, help="Azzera tutti i 6 slot per iniziare un nuovo volantino da zero"):
+            for s_idx in range(6):
+                st.session_state.flyer_slots[s_idx] = {
+                    "cod_art": "",
+                    "descrizione_articolo": "",
+                    "um": "Kg",
+                    "prezzo": 0.0,
+                    "descrizione_commerciale": "",
+                    "foto_path": ""
+                }
+                for k in [f"flyer_sel_{s_idx}", f"flyer_price_{s_idx}", f"flyer_desc_{s_idx}"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
+            st.toast("🧹 Tutti i 6 slot del volantino sono stati svuotati!")
+            st.rerun()
+
+    # Product list for slot selectors
+    all_prods = database.get_all_products_basic()
+    prod_options = ["-- Nessun Prodotto Selezionato --"] + [
+        f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+        for p in all_prods
+    ]
+    sku_to_opt = {p['cod_art']: f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})" for p in all_prods}
+
+    st.markdown("##### 🎯 Configura i 6 Slot Promozionali (2 Colonne × 3 Righe):")
+
+    # Render 3 rows of 2 columns
+    for row_idx in range(3):
+        col_left, col_right = st.columns(2)
+        for c_idx, col in enumerate([col_left, col_right]):
+            slot_num = row_idx * 2 + c_idx
+            slot = st.session_state.flyer_slots[slot_num]
+            pos_label = f"Riga {row_idx + 1}, {'Colonna Sinistra' if c_idx == 0 else 'Colonna Destra'}"
+            
+            with col:
+                with st.container(border=True):
+                    # Header row inside card container
+                    card_h1, card_h2 = st.columns([3.8, 1.2])
+                    with card_h1:
+                        if slot.get("cod_art"):
+                            st.markdown(f"**Slot {slot_num + 1}**: <span style='color:#D97706; font-weight:700;'>{slot.get('cod_art')}</span> <span style='font-size:0.75rem; color:#64748B;'>({pos_label})</span>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"**Slot {slot_num + 1}**: <span style='color:#94A3B8;'>Vuoto</span> <span style='font-size:0.75rem; color:#64748B;'>({pos_label})</span>", unsafe_allow_html=True)
+                    with card_h2:
+                        if slot.get("cod_art"):
+                            if st.button("🗑️ Rimuovi", key=f"btn_del_slot_{slot_num}", help=f"Svuota Slot {slot_num + 1}", use_container_width=True):
+                                st.session_state.flyer_slots[slot_num] = {
+                                    "cod_art": "",
+                                    "descrizione_articolo": "",
+                                    "um": "Kg",
+                                    "prezzo": 0.0,
+                                    "descrizione_commerciale": "",
+                                    "foto_path": ""
+                                }
+                                for k in [f"flyer_sel_{slot_num}", f"flyer_price_{slot_num}", f"flyer_desc_{slot_num}"]:
+                                    if k in st.session_state:
+                                        del st.session_state[k]
+                                st.rerun()
+
+                    # Dropdown selector
+                    current_sku = slot.get("cod_art", "")
+                    default_opt = sku_to_opt.get(current_sku, "-- Nessun Prodotto Selezionato --")
+                    try:
+                        sel_idx = prod_options.index(default_opt)
+                    except ValueError:
+                        sel_idx = 0
+                        
+                    sel_key = f"flyer_sel_{slot_num}"
+                    selected_choice = st.selectbox(
+                        f"Seleziona Articolo per Slot {slot_num + 1}",
+                        options=prod_options,
+                        index=sel_idx,
+                        key=sel_key,
+                        label_visibility="collapsed"
+                    )
+
+                    # Check if changed via dropdown
+                    chosen_sku = selected_choice.split(" — ")[0].strip() if not selected_choice.startswith("--") else ""
+                    if chosen_sku != current_sku:
+                        if not chosen_sku:
+                            st.session_state.flyer_slots[slot_num] = {
+                                "cod_art": "",
+                                "descrizione_articolo": "",
+                                "um": "Kg",
+                                "prezzo": 0.0,
+                                "descrizione_commerciale": "",
+                                "foto_path": ""
+                            }
+                            if f"flyer_price_{slot_num}" in st.session_state:
+                                del st.session_state[f"flyer_price_{slot_num}"]
+                            if f"flyer_desc_{slot_num}" in st.session_state:
+                                del st.session_state[f"flyer_desc_{slot_num}"]
+                        else:
+                            prod_obj = database.get_product_by_code(chosen_sku)
+                            if prod_obj:
+                                raw_p = str(prod_obj.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                                try:
+                                    p_val = float(raw_p) if raw_p else 0.0
+                                except (ValueError, TypeError):
+                                    p_val = 0.0
+                                raw_desc = prod_obj.get('descrizione_commerciale', '') or ''
+                                clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
+                                if len(clean_d) > 105:
+                                    clean_d = clean_d[:102].strip() + "..."
+                                foto = resolve_file(prod_obj.get('foto_path'), prod_obj.get('foto_filename'), config.FOTO_DIR, sku=chosen_sku)
+                                st.session_state.flyer_slots[slot_num] = {
+                                    "cod_art": chosen_sku,
+                                    "descrizione_articolo": prod_obj.get('descrizione_articolo', ''),
+                                    "um": prod_obj.get('um', 'Kg') or 'Kg',
+                                    "prezzo": p_val,
+                                    "descrizione_commerciale": clean_d,
+                                    "foto_path": foto or ""
+                                }
+                                st.session_state[f"flyer_price_{slot_num}"] = p_val
+                                st.session_state[f"flyer_desc_{slot_num}"] = clean_d
+                        st.rerun()
+
+                    # Inputs if product assigned
+                    if slot.get("cod_art"):
+                        p_c1, p_c2 = st.columns([1.2, 1])
+                        with p_c1:
+                            new_price = st.number_input(
+                                f"Prezzo Offerta (€/{slot.get('um', 'Kg')})",
+                                min_value=0.0,
+                                value=float(slot.get("prezzo", 0.0)),
+                                step=0.10,
+                                format="%.2f",
+                                key=f"flyer_price_{slot_num}"
+                            )
+                            st.session_state.flyer_slots[slot_num]["prezzo"] = new_price
+                        with p_c2:
+                            foto = slot.get("foto_path")
+                            if foto and os.path.exists(foto):
+                                st.markdown("<div style='margin-top:28px; color:#16A34A; font-size:0.82rem; font-weight:700;'>📸 Foto HD Presente</div>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<div style='margin-top:28px; color:#94A3B8; font-size:0.82rem;'>📷 Nessuna foto</div>", unsafe_allow_html=True)
+
+                        new_desc = st.text_area(
+                            "Descrizione Commerciale Sintetica (max 2 righe):",
+                            value=slot.get("descrizione_commerciale", ""),
+                            height=65,
+                            key=f"flyer_desc_{slot_num}",
+                            help="Brevissima descrizione da stampare nel volantino sotto il titolo."
+                        )
+                        st.session_state.flyer_slots[slot_num]["descrizione_commerciale"] = new_desc
+                    else:
+                        st.caption("ℹ️ Slot vuoto. Assegna un articolo o usa '📄 Aggiungi a Volantino' dalla Scheda Prodotto.")
+
+    # Live Preview & Download
+    st.divider()
+    active_count = sum(1 for s in st.session_state.flyer_slots if s.get("cod_art"))
+    
+    down_c1, down_c2 = st.columns([3, 1.5])
+    with down_c1:
+        st.markdown(f"### 🖨️ Anteprima Volantino A4 ({active_count} / 6 Prodotti Inseriti)")
+        st.caption("Il documento PDF viene generato in tempo reale ed è calibrato millimetricamente per una singola pagina A4 verticale.")
+    
+    logo_file = str(config.BASE_DIR / "ift_logo.png") if (config.BASE_DIR / "ift_logo.png").exists() else None
+    flyer_pdf_bytes = weekly_flyer_generator.generate_weekly_flyer_pdf(
+        st.session_state.flyer_slots,
+        logo_path=logo_file
+    )
+    
+    with down_c2:
+        st.write("")
+        st.download_button(
+            label="📥 Scarica Volantino PDF (A4)",
+            data=flyer_pdf_bytes,
+            file_name=f"Volantino_Offerte_Lampo_IFT_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True
+        )
+
+    # Visual PDF Preview inside iframe
+    b64_flyer = base64.b64encode(flyer_pdf_bytes).decode('utf-8')
+    st.markdown(
+        f'<iframe src="data:application/pdf;base64,{b64_flyer}#toolbar=0&navpanes=0" width="100%" height="840" style="border: 1px solid #CBD5E1; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.08);"></iframe>',
+        unsafe_allow_html=True
+    )
+
 
 
