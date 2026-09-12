@@ -245,6 +245,36 @@ def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str =
                 return str(candidate)
     return None
 
+def get_local_ip() -> str:
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "192.168.220.87"
+    finally:
+        s.close()
+    return ip
+
+def get_or_create_qr_code(url: str) -> str:
+    qr_file = Path(__file__).parent / "qr_code_mobile.png"
+    try:
+        import qrcode
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#0F172A", back_color="white")
+        img.save(str(qr_file))
+    except Exception:
+        pass
+    return str(qr_file)
+
 # Initialize database if needed
 if not config.DB_PATH.exists():
     database.init_db()
@@ -331,6 +361,10 @@ if "flyer_date_start" not in st.session_state:
     st.session_state.flyer_date_start = _cur_mon_init
 if "flyer_date_end" not in st.session_state:
     st.session_state.flyer_date_end = _cur_sat_init
+if "flyer_start_picker" not in st.session_state:
+    st.session_state.flyer_start_picker = _cur_mon_init
+if "flyer_end_picker" not in st.session_state:
+    st.session_state.flyer_end_picker = _cur_sat_init
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -410,6 +444,33 @@ with st.sidebar:
             indexer.run_indexing()
             st.success("Catalogo sincronizzato!")
             st.rerun()
+            
+    st.divider()
+    with st.expander("📱 Apri su Smartphone / Tablet", expanded=False):
+        _local_ip = get_local_ip()
+        _local_url = f"http://{_local_ip}:8501"
+        _public_url = "https://paragraph-julia-regulated-marvel.trycloudflare.com"
+        _qr_img = Path(__file__).parent / "qr_code_mobile.png"
+        st.markdown("""
+        <div style="font-size:0.80rem; color:#475569; margin-bottom:8px; line-height:1.4;">
+            Inquadra il codice QR con la fotocamera del tuo smartphone o tablet (funziona su qualsiasi connessione <b>Wi-Fi o 4G/5G</b>):
+        </div>
+        """, unsafe_allow_html=True)
+        if _qr_img.exists():
+            st.image(str(_qr_img), use_container_width=True)
+        st.markdown(f"""
+        <div style="margin-top:6px; text-align:center;">
+            <div style="font-size:0.73rem; color:#166534; font-weight:700; margin-bottom:3px;">🌐 Connessione Sicura HTTPS (Consigliata):</div>
+            <div style="font-size:0.72rem; font-weight:600; background:#F0FDF4; border:1px solid #BBF7D0; padding:6px 8px; border-radius:6px; word-break:break-all;">
+                <a href="{_public_url}" target="_blank" style="color:#15803D; text-decoration:none;">{_public_url}</a>
+            </div>
+            <div style="font-size:0.70rem; color:#64748B; margin-top:8px; margin-bottom:3px;">🏠 Solo su Wi-Fi locale:</div>
+            <div style="font-size:0.72rem; font-weight:600; background:#F8FAFC; border:1px solid #E2E8F0; padding:4px 8px; border-radius:6px; word-break:break-all;">
+                <a href="{_local_url}" target="_blank" style="color:#475569; text-decoration:none;">{_local_url}</a>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 # --- HERO HEADER BANNER ---
 st.markdown(f"""
@@ -1981,38 +2042,76 @@ with tab_flyer:
     _cur_mon = _today_dt - timedelta(days=_today_dt.weekday())
     _cur_sat = _cur_mon + timedelta(days=5)
 
+    def _nav_prev_week():
+        curr_start = st.session_state.get("flyer_start_picker", _cur_mon)
+        new_start = curr_start - timedelta(days=7)
+        new_mon = new_start - timedelta(days=new_start.weekday())
+        new_sat = new_mon + timedelta(days=5)
+        st.session_state.flyer_start_picker = new_mon
+        st.session_state.flyer_end_picker = new_sat
+        st.session_state.flyer_date_start = new_mon
+        st.session_state.flyer_date_end = new_sat
+
+    def _nav_curr_week():
+        _t = datetime.now().date()
+        new_mon = _t - timedelta(days=_t.weekday())
+        new_sat = new_mon + timedelta(days=5)
+        st.session_state.flyer_start_picker = new_mon
+        st.session_state.flyer_end_picker = new_sat
+        st.session_state.flyer_date_start = new_mon
+        st.session_state.flyer_date_end = new_sat
+
+    def _nav_next_week():
+        curr_start = st.session_state.get("flyer_start_picker", _cur_mon)
+        new_start = curr_start + timedelta(days=7)
+        new_mon = new_start - timedelta(days=new_start.weekday())
+        new_sat = new_mon + timedelta(days=5)
+        st.session_state.flyer_start_picker = new_mon
+        st.session_state.flyer_end_picker = new_sat
+        st.session_state.flyer_date_start = new_mon
+        st.session_state.flyer_date_end = new_sat
+
+    def _on_flyer_start_change():
+        dt = st.session_state.flyer_start_picker
+        mon = dt - timedelta(days=dt.weekday())
+        sat = mon + timedelta(days=5)
+        st.session_state.flyer_start_picker = mon
+        st.session_state.flyer_end_picker = sat
+        st.session_state.flyer_date_start = mon
+        st.session_state.flyer_date_end = sat
+
+    def _on_flyer_end_change():
+        st.session_state.flyer_date_end = st.session_state.flyer_end_picker
+
     with st.container(border=True):
-        d_col1, d_col2, d_col3 = st.columns([1.5, 1.5, 2.5])
+        d_col1, d_col2, d_col3 = st.columns([1.3, 1.3, 2.4])
         with d_col1:
-            st.session_state.flyer_date_start = st.date_input(
+            st.date_input(
                 "📅 Inizio Validità (Lunedì)",
-                value=st.session_state.flyer_date_start,
+                key="flyer_start_picker",
                 format="DD/MM/YYYY",
-                key="flyer_start_picker"
+                on_change=_on_flyer_start_change
             )
+            st.session_state.flyer_date_start = st.session_state.flyer_start_picker
         with d_col2:
-            st.session_state.flyer_date_end = st.date_input(
+            st.date_input(
                 "📅 Fine Validità (Sabato)",
-                value=st.session_state.flyer_date_end,
+                key="flyer_end_picker",
                 format="DD/MM/YYYY",
-                key="flyer_end_picker"
+                on_change=_on_flyer_end_change
             )
+            st.session_state.flyer_date_end = st.session_state.flyer_end_picker
         with d_col3:
             st.write("")
             st.write("")
-            q_b1, q_b2 = st.columns(2)
+            q_b1, q_b2, q_b3 = st.columns(3)
             with q_b1:
-                if st.button("⏪ Questa Settimana", use_container_width=True, help="Imposta la settimana corrente (Lunedì - Sabato)"):
-                    st.session_state.flyer_date_start = _cur_mon
-                    st.session_state.flyer_date_end = _cur_sat
-                    st.rerun()
+                st.button("◀ Settimana Prec.", on_click=_nav_prev_week, use_container_width=True, help="Sposta indietro di una settimana (-7 giorni)")
             with q_b2:
-                _next_mon = _cur_mon + timedelta(days=7)
-                _next_sat = _next_mon + timedelta(days=5)
-                if st.button("⏩ Prossima Settimana", use_container_width=True, help="Imposta la prossima settimana (Lunedì - Sabato)"):
-                    st.session_state.flyer_date_start = _next_mon
-                    st.session_state.flyer_date_end = _next_sat
-                    st.rerun()
+                st.button("⏺ Questa Settimana", on_click=_nav_curr_week, use_container_width=True, help="Imposta la settimana corrente (Lunedì - Sabato)")
+            with q_b3:
+                st.button("▶ Settimana Succ.", on_click=_nav_next_week, use_container_width=True, help="Sposta in avanti di una settimana (+7 giorni)")
+
 
     # Calculate formatted validity string in Italian
     mesi_it = {
