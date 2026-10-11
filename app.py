@@ -1398,47 +1398,7 @@ with tab_foodcost:
                 else:
                     st.warning("Seleziona prima un prodotto dal menu a tendina.")
 
-    # -------------------------------------------------------------
-    # 6. MONTHLY PROFIT SIMULATOR
-    # -------------------------------------------------------------
-    st.write("")
-    with st.container(border=True):
-        st.markdown("##### 📈 Simulatore di Redditività & Profitto Mensile")
-        st.caption("Stima il volume di vendite per questo piatto e visualizza il margine lordo generato per il locale:")
-        
-        sim_col_slider, sim_col_res1, sim_col_res2 = st.columns([2.5, 1.5, 1.5])
-        
-        with sim_col_slider:
-            daily_portions = st.slider(
-                "Porzioni / Coperti venduti al giorno:",
-                min_value=5,
-                max_value=200,
-                value=30,
-                step=5
-            )
-            days_open = st.number_input("Giorni di apertura al mese:", min_value=1, max_value=31, value=26, step=1)
-            
-        monthly_portions = daily_portions * days_open
-        monthly_revenue = monthly_portions * summary["actual_selling_price_net"]
-        monthly_profit = monthly_portions * summary["gross_margin_per_portion"]
-        
-        with sim_col_res1:
-            st.markdown(f"""
-            <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:12px; border-radius:10px; text-align:center;">
-                <div style="font-size:0.78rem; color:#64748B; font-weight:700;">INCASSO MENSILE NETTO</div>
-                <div style="font-size:1.35rem; font-weight:800; color:#0F172A; margin-top:4px;">€ {monthly_revenue:,.2f}</div>
-                <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">su {monthly_portions} piatti/mese</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with sim_col_res2:
-            st.markdown(f"""
-            <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:10px; text-align:center;">
-                <div style="font-size:0.78rem; color:#166534; font-weight:700;">PROFITTO LORDO MENSILE</div>
-                <div style="font-size:1.35rem; font-weight:800; color:#15803D; margin-top:4px;">€ {monthly_profit:,.2f}</div>
-                <div style="font-size:0.75rem; color:#166534; margin-top:2px;">Margine vivo d'esercizio</div>
-            </div>
-            """, unsafe_allow_html=True)
+
 
     # -------------------------------------------------------------
     # 7. STRATEGIC ACTIONS (QUOTE INTEGRATION & AI OPTIMIZER)
