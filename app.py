@@ -21,12 +21,18 @@ st.set_page_config(
     page_title="Catalogo Intelligente — Italian Food Trading",
     page_icon="🍴",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Custom Theme and UI Overhaul
 st.markdown("""
 <style>
+    /* Nascondi completamente la sidebar e il pulsante freccetta di Streamlit */
+    [data-testid="collapsedControl"],
+    section[data-testid="stSidebar"],
+    div[data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
@@ -443,111 +449,17 @@ if not st.session_state.authenticated:
                     st.error("❌ Password non corretta. Contatta la direzione commerciale IFT.")
     st.stop()
 
-# --- SIDEBAR OVERHAUL ---
-with st.sidebar:
-    st.markdown(f"""
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; background: #FFFFFF; padding: 10px 12px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-        <img src="{company_logo_b64}" style="height: 36px; width: auto; object-fit: contain;">
-        <div>
-            <div style="font-weight: 800; font-size: 1.05rem; color: #0F172A; line-height: 1.1;">Italian Food Trading</div>
-            <div style="font-size: 0.78rem; color: #64748B;">S.r.l. — Verona</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.divider()
-    
-    # API Key Configuration Card
-    st.markdown("##### ⚡ Motore Intelligenza Artificiale")
-    env_api_key = os.getenv("GEMINI_API_KEY", "")
-    user_api_key = st.text_input(
-        "Google Gemini API Key",
-        value=env_api_key,
-        type="password",
-        help="La tua chiave API è salvata e protetta localmente."
-    )
-    
-    active_api_key = user_api_key.strip() or env_api_key
-    if active_api_key:
-        st.markdown("""
-        <div style="background:#ECFDF5; border:1px solid #A7F3D0; padding:6px 12px; border-radius:8px; font-size:0.8rem; color:#065F46; font-weight:600; margin-bottom:10px;">
-            🟢 API Key Connessa & Attiva
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div style="background:#FEF2F2; border:1px solid #FECACA; padding:6px 12px; border-radius:8px; font-size:0.8rem; color:#991B1B; font-weight:600; margin-bottom:10px;">
-            ⚠️ Inserisci API Key per usare l'AI
-        </div>
-        """, unsafe_allow_html=True)
-        
-    model_choice = st.selectbox(
-        "Modello LLM",
-        options=["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.7-flash", "gemini-flash-latest", "gemini-pro-latest"],
-        index=0,
-        help="Gemini 3.6 Flash o 2.5 Flash garantiscono massima velocità e stabilità."
-    )
-    
-    enable_web_search = st.toggle("🌐 Ricerca Web Google in tempo reale", value=True, help="Ricerca abbinamenti, ricette gourmet e tendenze in tempo reale.")
-    
-    st.divider()
-    
-    # Catalog Filters
-    st.markdown("##### 🏷️ Filtri Catalogo")
-    categories = ["Tutte"] + database.get_categories()
-    selected_category = st.selectbox("Categoria Merceologica", categories, index=0)
-    
-    storage_envs = ["Tutti"] + database.get_storage_envs()
-    selected_env = st.selectbox("Ambiente di Conservazione", storage_envs, index=0)
-    
-    st.divider()
-    
-    # Stats Card
-    stats = database.get_catalog_stats()
-    st.markdown(f"""
-    <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:12px 14px; border-radius:10px; font-size:0.82rem; color:#475569;">
-        <div style="font-weight:700; color:#1E293B; margin-bottom:6px;">📊 Stato Catalogo</div>
-        <div>📦 <b>{stats['total_products']:,}</b> Prodotti indicizzati</div>
-        <div>📸 <b>{stats['with_foto']:,}</b> Foto collegate</div>
-        <div>📄 <b>{stats['with_scheda']:,}</b> Schede PDF archiviate</div>
-        <div>🧠 <b>{stats['with_text']:,}</b> Schede con testo AI</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.write("")
-    if st.button("🔄 Sincronizza & Re-indicizza", use_container_width=True):
-        with st.spinner("Indicizzazione in corso..."):
-            import indexer
-            indexer.run_indexing()
-            st.success("Catalogo sincronizzato!")
-            st.rerun()
-            
-    st.divider()
-    with st.expander("📱 Apri su Smartphone / Tablet", expanded=False):
-        _local_ip = get_local_ip()
-        _local_url = f"http://{_local_ip}:8501"
-        _public_url = "https://paragraph-julia-regulated-marvel.trycloudflare.com"
-        _qr_img = Path(__file__).parent / "qr_code_mobile.png"
-        st.markdown("""
-        <div style="font-size:0.80rem; color:#475569; margin-bottom:8px; line-height:1.4;">
-            Inquadra il codice QR con la fotocamera del tuo smartphone o tablet (funziona su qualsiasi connessione <b>Wi-Fi o 4G/5G</b>):
-        </div>
-        """, unsafe_allow_html=True)
-        if _qr_img.exists():
-            st.image(str(_qr_img), use_container_width=True)
-        st.markdown(f"""
-        <div style="margin-top:6px; text-align:center;">
-            <div style="font-size:0.73rem; color:#166534; font-weight:700; margin-bottom:3px;">🌐 Connessione Sicura HTTPS (Consigliata):</div>
-            <div style="font-size:0.72rem; font-weight:600; background:#F0FDF4; border:1px solid #BBF7D0; padding:6px 8px; border-radius:6px; word-break:break-all;">
-                <a href="{_public_url}" target="_blank" style="color:#15803D; text-decoration:none;">{_public_url}</a>
-            </div>
-            <div style="font-size:0.70rem; color:#64748B; margin-top:8px; margin-bottom:3px;">🏠 Solo su Wi-Fi locale:</div>
-            <div style="font-size:0.72rem; font-weight:600; background:#F8FAFC; border:1px solid #E2E8F0; padding:4px 8px; border-radius:6px; word-break:break-all;">
-                <a href="{_local_url}" target="_blank" style="color:#475569; text-decoration:none;">{_local_url}</a>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+# --- CONFIGURAZIONI SISTEMA & AI (Invisibili alla forza vendita) ---
+active_api_key = os.getenv("GEMINI_API_KEY", "")
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        active_api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    pass
 
+model_choice = "gemini-3.6-flash"
+enable_web_search = True
+stats = database.get_catalog_stats()
 
 # --- HERO HEADER BANNER ---
 st.markdown(f"""
@@ -568,13 +480,22 @@ st.markdown(f"""
         <div class="hero-pill">📸 {stats['with_foto']:,} Foto HD</div>
         <div class="hero-pill">📄 {stats['with_scheda']:,} Schede Tecniche PDF</div>
         <div class="hero-pill">🛒 {len(st.session_state.quote_items)} Articoli in Preventivo</div>
-        <div class="hero-pill">⚡ Modello: {model_choice}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# Full-width search bar (no limit dropdown)
+# Full-width search bar
 search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
+
+# Filtri veloci categoria e conservazione
+with st.expander("🏷️ Filtri per Categoria e Conservazione", expanded=False):
+    f_col1, f_col2 = st.columns(2)
+    with f_col1:
+        categories = ["Tutte"] + database.get_categories()
+        selected_category = st.selectbox("Categoria Merceologica", categories, index=0)
+    with f_col2:
+        storage_envs = ["Tutti"] + database.get_storage_envs()
+        selected_env = st.selectbox("Ambiente di Conservazione", storage_envs, index=0)
 
 # Fetch all matching products without artificial limits
 products = database.search_products(
