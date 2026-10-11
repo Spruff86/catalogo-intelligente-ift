@@ -244,7 +244,7 @@ def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str =
             if candidate.exists():
                 return str(candidate)
     if gdrive_id:
-        return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w800"
+        return f"https://lh3.googleusercontent.com/d/{gdrive_id}=w800"
     return None
 
 
