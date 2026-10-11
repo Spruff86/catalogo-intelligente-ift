@@ -1646,26 +1646,37 @@ with tab_flash:
             st.toast("🧹 Scheda offerta ripulita! Puoi iniziarne una nuova.")
             st.rerun()
 
-    # 1. Product Selection
-    all_prods = database.get_all_products_basic()
-    
-    prod_options = ["-- Nessun Prodotto Selezionato --"] + [
-        f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
-        for p in all_prods
-    ]
-    
-    # Synchronize selector if flash_offer_sku was transferred from Tab 1
-    if st.session_state.get("flash_offer_sku"):
-        matching_opt = next((p for p in prod_options if p.startswith(f"{st.session_state.flash_offer_sku} —")), None)
-        if matching_opt:
-            st.session_state["flash_prod_selector"] = matching_opt
-    elif "flash_prod_selector" not in st.session_state:
-        st.session_state["flash_prod_selector"] = "-- Nessun Prodotto Selezionato --"
-                
     with st.container(border=True):
         st.markdown("##### 📦 1. Seleziona il Prodotto da Proporre:")
+        
+        # Ricerca rapida prodotto per Offerta WhatsApp
+        search_wa_prod = st.text_input("🔎 Cerca referenza a listino (es. 'angus', 'farina', 'burrata', 'A001012'):", "", key="search_wa_prod_input")
+        
+        all_prods = database.get_all_products_basic()
+        if search_wa_prod.strip():
+            kw = search_wa_prod.strip().lower()
+            filtered_prods = [
+                p for p in all_prods
+                if kw in p['cod_art'].lower() or kw in p['descrizione_articolo'].lower()
+            ]
+        else:
+            filtered_prods = all_prods
+            
+        prod_options = ["-- Nessun Prodotto Selezionato --"] + [
+            f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
+            for p in filtered_prods
+        ]
+        
+        # Synchronize selector if flash_offer_sku was transferred from Tab 1
+        if st.session_state.get("flash_offer_sku"):
+            matching_opt = next((p for p in prod_options if p.startswith(f"{st.session_state.flash_offer_sku} —")), None)
+            if matching_opt:
+                st.session_state["flash_prod_selector"] = matching_opt
+        if "flash_prod_selector" not in st.session_state or st.session_state["flash_prod_selector"] not in prod_options:
+            st.session_state["flash_prod_selector"] = prod_options[0]
+
         chosen_p_str = st.selectbox(
-            "Cerca referenza a listino (2.003 articoli IFT):",
+            f"Seleziona tra gli articoli trovati ({len(filtered_prods)}):",
             options=prod_options,
             key="flash_prod_selector"
         )
