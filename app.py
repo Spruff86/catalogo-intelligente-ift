@@ -484,27 +484,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Full-width search bar
-search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
-
-# Filtri veloci categoria e conservazione
-with st.expander("🏷️ Filtri per Categoria e Conservazione", expanded=False):
-    f_col1, f_col2 = st.columns(2)
-    with f_col1:
-        categories = ["Tutte"] + database.get_categories()
-        selected_category = st.selectbox("Categoria Merceologica", categories, index=0)
-    with f_col2:
-        storage_envs = ["Tutti"] + database.get_storage_envs()
-        selected_env = st.selectbox("Ambiente di Conservazione", storage_envs, index=0)
-
-# Fetch all matching products without artificial limits
-products = database.search_products(
-    query=search_query,
-    category=selected_category,
-    storage_env=selected_env,
-    limit=None
-)
-
 # Global product list for dropdown selectors & flyer
 all_prods = database.get_all_products_basic()
 prod_options = ["-- Nessun Prodotto Selezionato --"] + [
@@ -576,6 +555,26 @@ tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_flash, tab_flyer = st.tabs([
 # TAB 1: SCHEDA PRODOTTO & CATALOGO
 # =========================================================================
 with tab_catalog:
+    # Full-width search bar
+    search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
+
+    # Filtri veloci categoria e conservazione
+    with st.expander("🏷️ Filtri per Categoria e Conservazione", expanded=False):
+        f_col1, f_col2 = st.columns(2)
+        with f_col1:
+            categories = ["Tutte"] + database.get_categories()
+            selected_category = st.selectbox("Categoria Merceologica", categories, index=0)
+        with f_col2:
+            storage_envs = ["Tutti"] + database.get_storage_envs()
+            selected_env = st.selectbox("Ambiente di Conservazione", storage_envs, index=0)
+
+    # Fetch all matching products without artificial limits
+    products = database.search_products(
+        query=search_query,
+        category=selected_category,
+        storage_env=selected_env,
+        limit=None
+    )
     if not products:
         st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a selezionare 'Tutte' nei filtri di categoria.")
     else:
