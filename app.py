@@ -227,6 +227,45 @@ st.markdown("""
         transform: translateY(-1px);
         box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
     }
+    
+    /* Mobile-first Responsive Adjustments */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem 0.75rem 2.5rem 0.75rem !important;
+        }
+        .hero-banner {
+            padding: 16px 18px !important;
+            border-radius: 12px !important;
+            margin-bottom: 16px !important;
+        }
+        .hero-title {
+            font-size: 1.4rem !important;
+        }
+        .hero-subtitle {
+            font-size: 0.85rem !important;
+        }
+        .hero-stats-row {
+            gap: 8px !important;
+        }
+        .hero-pill {
+            font-size: 0.75rem !important;
+            padding: 4px 10px !important;
+        }
+        .product-title-text {
+            font-size: 1.15rem !important;
+        }
+        .price-value-text {
+            font-size: 1.2rem !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px !important;
+            font-size: 0.82rem !important;
+        }
+        .stButton>button, .stDownloadButton>button {
+            padding: 8px 14px !important;
+            font-size: 0.88rem !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
