@@ -17,15 +17,16 @@ DATA_EXCEL_PATH = _excel_candidates[0] if _excel_candidates else (BASE_DIR / "Da
 DB_PATH = BASE_DIR / "catalogo_horeca.db"
 
 # Local Google Drive paths (fallback for local Mac development)
-LOCAL_GDRIVE_MEDIA = Path("/Users/federicoprovolo/Library/CloudStorage/GoogleDrive-provolo.federico@gmail.com/Il mio Drive/Documenti/ITALIAN FOOD TRADING/Cataloghi/Foto e schede tecniche")
+GDRIVE_SAP_DIR = Path("/Users/federicoprovolo/Library/CloudStorage/GoogleDrive-provolo.federico@gmail.com/Il mio Drive/Dati ordini SAP")
+GDRIVE_LEGACY_MEDIA = Path("/Users/federicoprovolo/Library/CloudStorage/GoogleDrive-provolo.federico@gmail.com/Il mio Drive/Documenti/ITALIAN FOOD TRADING/Cataloghi/Foto e schede tecniche")
 
 # Relative paths if copied into repository
 REPO_FOTO_DIR = BASE_DIR / "Foto articoli"
 REPO_SCHEDE_DIR = BASE_DIR / "Schede tecniche"
 
-# Resolved Media Folders
-FOTO_DIR = REPO_FOTO_DIR if REPO_FOTO_DIR.exists() else (LOCAL_GDRIVE_MEDIA / "Foto articoli")
-SCHEDE_DIR = REPO_SCHEDE_DIR if REPO_SCHEDE_DIR.exists() else (LOCAL_GDRIVE_MEDIA / "Schede tecniche")
+# Resolved Media Folders (prioritize FOTO_TABLET and SCHEDE_T from SAP folder)
+FOTO_DIR = REPO_FOTO_DIR if REPO_FOTO_DIR.exists() else (GDRIVE_SAP_DIR / "FOTO_TABLET" if (GDRIVE_SAP_DIR / "FOTO_TABLET").exists() else (GDRIVE_LEGACY_MEDIA / "Foto articoli"))
+SCHEDE_DIR = REPO_SCHEDE_DIR if REPO_SCHEDE_DIR.exists() else (GDRIVE_SAP_DIR / "SCHEDE_T" if (GDRIVE_SAP_DIR / "SCHEDE_T").exists() else (GDRIVE_LEGACY_MEDIA / "Schede tecniche"))
 
 # AI Configuration
 DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
