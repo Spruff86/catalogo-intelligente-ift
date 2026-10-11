@@ -44,6 +44,21 @@ def extract_pdf_text(pdf_path: str) -> str:
     except Exception as e:
         return ""
 
+def get_gdrive_id(file_path: str) -> str:
+    """Extract Google Drive item ID from macOS extended attributes if available."""
+    if not file_path:
+        return ""
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ['xattr', '-p', 'com.google.drivefs.item-id#S', file_path],
+            text=True,
+            stderr=subprocess.DEVNULL
+        ).strip()
+        return out
+    except Exception:
+        return ""
+
 def run_indexing():
     print("Initializing database...")
     database.init_db()
@@ -147,6 +162,9 @@ def run_indexing():
         if scheda_path and os.path.exists(scheda_path):
             scheda_text = extract_pdf_text(scheda_path)
             
+        gdrive_foto_id = get_gdrive_id(foto_path)
+        gdrive_scheda_id = get_gdrive_id(scheda_path)
+
         products_to_insert.append((
             cod_art,
             descrizione_articolo,
@@ -166,7 +184,9 @@ def run_indexing():
             foto_path,
             scheda_filename,
             scheda_path,
-            scheda_text
+            scheda_text,
+            gdrive_foto_id,
+            gdrive_scheda_id
         ))
         
     print(f"Inserting {len(products_to_insert)} products into database...")
@@ -190,8 +210,10 @@ def run_indexing():
         foto_path,
         scheda_filename,
         scheda_path,
-        scheda_text
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        scheda_text,
+        gdrive_foto_id,
+        gdrive_scheda_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, products_to_insert)
     
     # Populate FTS

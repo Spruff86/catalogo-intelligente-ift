@@ -231,7 +231,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Helper to resolve image/PDF paths across Local and Cloud
-def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str = "") -> Optional[str]:
+def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str = "", gdrive_id: str = "") -> Optional[str]:
     if stored_path and os.path.exists(stored_path):
         return stored_path
     if filename and fallback_dir.exists():
@@ -243,7 +243,10 @@ def resolve_file(stored_path: str, filename: str, fallback_dir: Path, sku: str =
             candidate = fallback_dir / f"{sku}{ext}"
             if candidate.exists():
                 return str(candidate)
+    if gdrive_id:
+        return f"https://drive.google.com/thumbnail?id={gdrive_id}&sz=w800"
     return None
+
 
 def get_local_ip() -> str:
     import socket
@@ -365,6 +368,41 @@ if "flyer_start_picker" not in st.session_state:
     st.session_state.flyer_start_picker = _cur_mon_init
 if "flyer_end_picker" not in st.session_state:
     st.session_state.flyer_end_picker = _cur_sat_init
+
+# --- AUTHENTICATION GATE (Sicurezza Cloud per la Forza Vendita) ---
+_app_pwd = os.getenv("APP_PASSWORD", "")
+try:
+    if "APP_PASSWORD" in st.secrets:
+        _app_pwd = st.secrets["APP_PASSWORD"]
+except Exception:
+    pass
+
+if not _app_pwd:
+    _app_pwd = "ift"
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    _, login_col, _ = st.columns([1, 1.8, 1])
+    with login_col:
+        st.markdown(f"""
+        <div style="text-align: center; margin-top: 40px; margin-bottom: 24px; background: white; padding: 28px 24px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+            <img src="{company_logo_b64}" style="max-height: 70px; width: auto; margin-bottom: 14px; object-fit: contain;">
+            <h2 style="color: #0F172A; margin: 0 0 6px 0; font-weight: 800; font-size: 1.4rem;">Catalogo Intelligente Ho.Re.Ca</h2>
+            <p style="color: #64748B; font-size: 0.9rem; margin: 0;">Italian Food Trading S.r.l. — Accesso Riservato Forza Vendita</p>
+        </div>
+        """, unsafe_allow_html=True)
+        with st.form("ift_login_form"):
+            entered_pwd = st.text_input("🔑 Inserisci la Password di accesso:", type="password", placeholder="Password aziendale...")
+            submit_btn = st.form_submit_button("Accedi al Catalogo", use_container_width=True)
+            if submit_btn:
+                if entered_pwd.strip() == _app_pwd:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("❌ Password non corretta. Contatta la direzione commerciale IFT.")
+    st.stop()
 
 # --- SIDEBAR OVERHAUL ---
 with st.sidebar:
@@ -541,7 +579,7 @@ def on_flyer_slot_select(idx):
             clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
             if len(clean_d) > 105:
                 clean_d = clean_d[:102].strip() + "..."
-            foto = resolve_file(prod_obj.get('foto_path'), prod_obj.get('foto_filename'), config.FOTO_DIR, sku=sku)
+            foto = resolve_file(prod_obj.get('foto_path'), prod_obj.get('foto_filename'), config.FOTO_DIR, sku=sku, gdrive_id=prod_obj.get('gdrive_foto_id'))
             st.session_state.flyer_slots[idx] = {
                 "cod_art": sku,
                 "descrizione_articolo": prod_obj.get('descrizione_articolo', ''),
@@ -605,8 +643,8 @@ with tab_catalog:
                 col_img, col_info = st.columns([1, 2], gap="large")
                 
                 with col_img:
-                    foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR)
-                    if foto_resolved and os.path.exists(foto_resolved):
+                    foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, gdrive_id=current_prod.get('gdrive_foto_id'))
+                    if foto_resolved and (foto_resolved.startswith("http") or os.path.exists(foto_resolved)):
                         st.image(foto_resolved, use_container_width=True)
                         st.caption(f"Codice SKU: `{current_prod['cod_art']}`")
                     else:
@@ -674,7 +712,7 @@ with tab_catalog:
                                 st.rerun()
                                 
                     with btn_col2:
-                        scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR)
+                        scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR, gdrive_id=current_prod.get('gdrive_scheda_id'))
                         if scheda_resolved and os.path.exists(scheda_resolved):
                             with open(scheda_resolved, "rb") as f:
                                 st.download_button(
@@ -684,6 +722,12 @@ with tab_catalog:
                                     mime="application/pdf",
                                     use_container_width=True
                                 )
+                        elif current_prod.get('gdrive_scheda_id'):
+                            st.link_button(
+                                "📄 Apri Scheda PDF",
+                                f"https://drive.google.com/file/d/{current_prod['gdrive_scheda_id']}/view",
+                                use_container_width=True
+                            )
                         else:
                             st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
 

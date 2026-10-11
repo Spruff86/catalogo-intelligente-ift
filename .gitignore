@@ -6,3 +6,5 @@ __pycache__/
 streamlit.log
 nohup.out
 .system_generated/
+test_*.py
+qr_code_mobile.png

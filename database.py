@@ -34,7 +34,9 @@ def init_db():
         foto_path TEXT,
         scheda_filename TEXT,
         scheda_path TEXT,
-        scheda_text TEXT
+        scheda_text TEXT,
+        gdrive_foto_id TEXT,
+        gdrive_scheda_id TEXT
     )
     """)
     
@@ -43,6 +45,10 @@ def init_db():
     cols = [r[1] for r in cursor.fetchall()]
     if "prezzo_contratto" not in cols:
         cursor.execute("ALTER TABLE products ADD COLUMN prezzo_contratto TEXT")
+    if "gdrive_foto_id" not in cols:
+        cursor.execute("ALTER TABLE products ADD COLUMN gdrive_foto_id TEXT")
+    if "gdrive_scheda_id" not in cols:
+        cursor.execute("ALTER TABLE products ADD COLUMN gdrive_scheda_id TEXT")
     
     # Create FTS5 virtual table for full text search
     cursor.execute("""
