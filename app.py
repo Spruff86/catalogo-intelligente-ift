@@ -57,49 +57,81 @@ st.markdown("""
         -webkit-font-smoothing: antialiased;
     }
     
-    /* Top Hero Banner */
-    .hero-banner {
-        background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
-        border-radius: 16px;
-        padding: 24px 32px;
+    /* Compact Hero Header (Mobile & Tablet First) */
+    .hero-banner-compact {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 70%, #334155 100%);
+        border-radius: 12px;
+        padding: 10px 16px;
         color: white;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+        margin-bottom: 12px;
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    .hero-title {
-        font-size: 1.85rem;
+    .hero-title-compact {
+        font-size: 1.15rem;
         font-weight: 800;
-        letter-spacing: -0.02em;
-        margin-bottom: 6px;
-        background: linear-gradient(90deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.01em;
+        color: #F8FAFC;
+        line-height: 1.2;
     }
     
-    .hero-subtitle {
-        font-size: 0.95rem;
+    .hero-subtitle-compact {
+        font-size: 0.78rem;
         color: #94A3B8;
         font-weight: 400;
-        margin-bottom: 16px;
     }
     
-    .hero-stats-row {
+    .hero-stats-row-compact {
         display: flex;
-        gap: 16px;
+        gap: 8px;
         flex-wrap: wrap;
+        align-items: center;
     }
     
     .hero-pill {
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.15);
-        padding: 6px 14px;
+        padding: 4px 10px;
         border-radius: 9999px;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
         color: #F8FAFC;
         backdrop-filter: blur(8px);
+    }
+    
+    .hero-pill-active {
+        background: rgba(245, 158, 11, 0.25) !important;
+        border: 1px solid #F59E0B !important;
+        color: #FDE68A !important;
+    }
+
+    /* Quick Quotation Alert Banner */
+    .quote-quick-alert {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        border: 1.5px solid #3B82F6;
+        border-left: 5px solid #3B82F6;
+        border-radius: 10px;
+        padding: 10px 16px;
+        color: #F8FAFC;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+
+    /* Touch-friendly Price Tag */
+    .price-tag-box-touch {
+        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+        border: 1.5px solid #10B981;
+        padding: 8px 14px;
+        border-radius: 10px;
+        margin-top: 6px;
+        display: inline-block;
+    }
+
+    .price-value-text-touch {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #065F46;
     }
     
     /* Product Card Styling */
@@ -208,17 +240,22 @@ st.markdown("""
         color: #FBBF24;
     }
     
-    /* Clean Tab Styling */
+    /* Clean Mobile-First Tab Styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        margin-bottom: 16px;
+        gap: 6px;
+        margin-bottom: 14px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
     }
     
     .stTabs [data-baseweb="tab"] {
-        padding: 10px 18px !important;
-        border-radius: 10px !important;
+        padding: 9px 16px !important;
+        border-radius: 9px !important;
         font-weight: 600 !important;
-        font-size: 0.92rem !important;
+        font-size: 0.90rem !important;
+        white-space: nowrap !important;
+        min-height: 42px !important;
         transition: all 0.2s ease !important;
     }
     
@@ -226,6 +263,7 @@ st.markdown("""
     .stButton>button, .stDownloadButton>button {
         border-radius: 10px !important;
         font-weight: 600 !important;
+        min-height: 44px !important;
         transition: all 0.15s ease !important;
     }
     
@@ -234,42 +272,53 @@ st.markdown("""
         box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.1);
     }
     
-    /* Mobile-first Responsive Adjustments */
-    @media (max-width: 768px) {
+    /* Responsive Adjustments (Tablet & Smartphone) */
+    @media (max-width: 992px) {
         .main .block-container {
-            padding: 1rem 0.75rem 2.5rem 0.75rem !important;
+            padding: 0.8rem 0.75rem 2rem 0.75rem !important;
         }
-        .hero-banner {
-            padding: 16px 18px !important;
-            border-radius: 12px !important;
-            margin-bottom: 16px !important;
+        .hero-banner-compact {
+            padding: 8px 12px !important;
+            margin-bottom: 10px !important;
         }
-        .hero-title {
-            font-size: 1.4rem !important;
+        .hero-title-compact {
+            font-size: 1.05rem !important;
         }
-        .hero-subtitle {
-            font-size: 0.85rem !important;
+        .hero-subtitle-compact {
+            font-size: 0.74rem !important;
         }
-        .hero-stats-row {
-            gap: 8px !important;
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px !important;
+            margin-bottom: 10px !important;
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
         }
-        .hero-pill {
-            font-size: 0.75rem !important;
-            padding: 4px 10px !important;
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px !important;
+            font-size: 0.84rem !important;
+            white-space: nowrap !important;
+            min-height: 42px !important;
+        }
+        .stButton>button, .stDownloadButton>button {
+            min-height: 44px !important;
+            padding: 8px 12px !important;
+            font-size: 0.86rem !important;
+        }
+        .price-value-text-touch {
+            font-size: 1.25rem !important;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .hero-stats-row-compact {
+            display: none !important;
         }
         .product-title-text {
             font-size: 1.15rem !important;
         }
-        .price-value-text {
-            font-size: 1.2rem !important;
-        }
         .stTabs [data-baseweb="tab"] {
-            padding: 8px 12px !important;
-            font-size: 0.82rem !important;
-        }
-        .stButton>button, .stDownloadButton>button {
-            padding: 8px 14px !important;
-            font-size: 0.88rem !important;
+            padding: 6px 10px !important;
+            font-size: 0.80rem !important;
         }
     }
 </style>
@@ -461,28 +510,45 @@ model_choice = "gemini-3.6-flash"
 enable_web_search = True
 stats = database.get_catalog_stats()
 
-# --- HERO HEADER BANNER ---
+# --- HERO HEADER BANNER (Compatto & Mobile-Friendly) ---
+quote_items_count = len(st.session_state.quote_items)
+quote_pill_html = f'<div class="hero-pill hero-pill-active">🛒 <b>{quote_items_count}</b> in Preventivo</div>' if quote_items_count > 0 else '<div class="hero-pill">🛒 0 in Preventivo</div>'
+
 st.markdown(f"""
-<div class="hero-banner">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
-        <div>
-            <div class="hero-title" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-                <span>🍴 Catalogo Intelligente Ho.Re.Ca.</span>
-                <span style="display: inline-flex; align-items: center; background: rgba(255, 255, 255, 0.95); padding: 4px 12px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.12);">
-                    <img src="{company_logo_b64}" alt="Italian Food Trading S.r.l. Verona" style="height: 34px; width: auto; object-fit: contain;">
-                </span>
+<div class="hero-banner-compact">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: rgba(255, 255, 255, 0.95); padding: 3px 8px; border-radius: 8px; display: inline-flex; align-items: center;">
+                <img src="{company_logo_b64}" alt="IFT Logo" style="height: 26px; width: auto; object-fit: contain;">
             </div>
-            <div class="hero-subtitle">Italian Food Trading S.r.l. (Verona) • Consulenza Tecnica Certificata, Preventivi PDF & Assistente AI Ho.Re.Ca</div>
+            <div>
+                <div class="hero-title-compact">Catalogo Ho.Re.Ca. <span style="font-weight: 400; font-size: 0.8rem; color: #94A3B8;">| Italian Food Trading</span></div>
+                <div class="hero-subtitle-compact">Verona • 2.003+ Referenze • Assistente AI Ho.Re.Ca</div>
+            </div>
         </div>
-    </div>
-    <div class="hero-stats-row">
-        <div class="hero-pill">📦 {stats['total_products']:,} Articoli a Catalogo</div>
-        <div class="hero-pill">📸 {stats['with_foto']:,} Foto HD</div>
-        <div class="hero-pill">📄 {stats['with_scheda']:,} Schede Tecniche PDF</div>
-        <div class="hero-pill">🛒 {len(st.session_state.quote_items)} Articoli in Preventivo</div>
+        <div class="hero-stats-row-compact">
+            <div class="hero-pill">📦 {stats['total_products']:,} Articoli</div>
+            <div class="hero-pill">📄 {stats['with_scheda']:,} Schede PDF</div>
+            {quote_pill_html}
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+if quote_items_count > 0:
+    quote_total_val = sum(item.get("quantita", 1) * item.get("prezzo_unitario", 0.0) for item in st.session_state.quote_items)
+    st.markdown(f"""
+    <div class="quote-quick-alert">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+                🛒 <b>{quote_items_count}</b> articol{'o' if quote_items_count == 1 else 'i'} nel Preventivo • Totale stimato: <b style="color: #FBBF24; font-size: 1.05rem;">€ {quote_total_val:.2f}</b>
+            </div>
+            <div style="font-size: 0.82rem; color: #93C5FD; font-weight: 600;">
+                👉 Tocca la scheda <b>'🛒 Preventivo'</b> per generare il PDF o esportare su WhatsApp
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Global product list for dropdown selectors & flyer
 all_prods = database.get_all_products_basic()
@@ -536,27 +602,43 @@ def on_flyer_price_change(idx):
 def on_flyer_desc_change(idx):
     st.session_state.flyer_slots[idx]["descrizione_commerciale"] = st.session_state.get(f"flyer_desc_{idx}", "")
 
-# Tabs Definition
+# Tabs Definition (Compatte & Touch-Friendly per Tablet e Smartphone)
 quote_count = len(st.session_state.quote_items)
-quote_tab_label = f"📑 Preventivo & Ordine ({quote_count})" if quote_count > 0 else "📑 Preventivo & Ordine"
+quote_tab_label = f"🛒 Preventivo ({quote_count})" if quote_count > 0 else "🛒 Preventivo"
 flyer_count = sum(1 for s in st.session_state.flyer_slots if s.get("cod_art"))
-flyer_tab_label = f"📄 Volantino Offerte ({flyer_count}/6)" if flyer_count > 0 else "📄 Volantino Offerte (0/6)"
+flyer_tab_label = f"📄 Volantino ({flyer_count}/6)" if flyer_count > 0 else "📄 Volantino"
 
 tab_catalog, tab_chat, tab_quote, tab_foodcost, tab_flash, tab_flyer = st.tabs([
-    "📦 Scheda Prodotto & Catalogo", 
-    "🤖 Studio Consulenza & Chat AI", 
+    "📦 Catalogo", 
+    "💬 Chat AI", 
     quote_tab_label,
-    "📊 Calcolatore Food Cost",
-    "📲 Offerta WhatsApp Flash",
+    "📊 Food Cost",
+    "📲 Offerta WA",
     flyer_tab_label
 ])
 
 # =========================================================================
-# TAB 1: SCHEDA PRODOTTO & CATALOGO
+# TAB 1: CATALOGO & SCHEDA PRODOTTO
 # =========================================================================
 with tab_catalog:
-    # Full-width search bar
-    search_query = st.text_input("🔍 Ricerca Intelligente Articoli (SKU, nome, ingrediente es. 'farina', 'burrata', 'wagyu', 'A001012')", "")
+    # Barra di ricerca rapida con pulsante Cancella (Touch-Friendly)
+    if "catalog_search_kw" not in st.session_state:
+        st.session_state["catalog_search_kw"] = ""
+
+    def clear_catalog_search():
+        st.session_state["catalog_search_kw"] = ""
+
+    col_srch, col_clr = st.columns([5, 1])
+    with col_srch:
+        search_query = st.text_input(
+            "🔍 Ricerca Intelligente Articoli",
+            placeholder="Cerca per SKU, nome o ingrediente (es. burrata, farina, guanciale, A001012...)",
+            key="catalog_search_kw"
+        )
+    with col_clr:
+        st.write("")
+        st.write("")
+        st.button("✖ Cancella", on_click=clear_catalog_search, use_container_width=True, help="Cancella la ricerca e visualizza tutti i prodotti")
 
     # Filtri veloci categoria e conservazione
     with st.expander("🏷️ Filtri per Categoria e Conservazione", expanded=False):
@@ -641,9 +723,9 @@ with tab_catalog:
                         st.markdown(f"• **Stato Articolo:** `{'Attivo a Listino' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}`")
                         if current_prod.get('prezzo_indicativo'):
                             st.markdown(f"""
-                            <div class="price-tag-box">
-                                <div style="font-size:0.75rem; color:#047857; font-weight:600;">Prezzo Soglia:</div>
-                                <div class="price-value-text">€ {current_prod.get('prezzo_indicativo')} / {current_prod.get('um', 'Kg')}</div>
+                            <div class="price-tag-box-touch">
+                                <div style="font-size:0.72rem; color:#047857; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Prezzo Soglia Riservato</div>
+                                <div class="price-value-text-touch">€ {current_prod.get('prezzo_indicativo')} <span style="font-size:0.85rem; font-weight:600; color:#065F46;">/ {current_prod.get('um', 'Kg')}</span></div>
                             </div>
                             """, unsafe_allow_html=True)
                     
@@ -654,22 +736,22 @@ with tab_catalog:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Action buttons in single clean row
+                    # Action buttons in a 2x2 touch-friendly grid
                     st.write("")
-                    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([1, 1, 1, 1])
-                    with btn_col1:
+                    b_row1_c1, b_row1_c2 = st.columns(2)
+                    with b_row1_c1:
                         if st.session_state.chat_focused_sku == selected_sku:
                             if st.button("❌ Rimuovi focus AI", use_container_width=True):
                                 st.session_state.chat_focused_sku = None
                                 st.toast("Focus rimosso! Passato al catalogo generale.")
                                 st.rerun()
                         else:
-                            if st.button("🎯 Aggancia alla Chat AI", type="primary", use_container_width=True):
+                            if st.button("🎯 Chiedi all'AI", type="primary", use_container_width=True):
                                 st.session_state.chat_focused_sku = selected_sku
-                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai al tab Chat.")
+                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai alla scheda '💬 Chat AI'.")
                                 st.rerun()
                                 
-                    with btn_col2:
+                    with b_row1_c2:
                         scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR, gdrive_id=current_prod.get('gdrive_scheda_id'))
                         if scheda_resolved and os.path.exists(scheda_resolved):
                             with open(scheda_resolved, "rb") as f:
@@ -689,7 +771,8 @@ with tab_catalog:
                         else:
                             st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
 
-                    with btn_col3:
+                    b_row2_c1, b_row2_c2 = st.columns(2)
+                    with b_row2_c1:
                         if st.button("📲 Offerta WhatsApp", use_container_width=True, help="Prepara un'offerta WhatsApp per questo articolo con presentazione e consigli"):
                             st.session_state.flash_offer_sku = selected_sku
                             try:
@@ -702,9 +785,9 @@ with tab_catalog:
                                 del st.session_state["wa_flash_editor"]
                             if "flash_prod_selector" in st.session_state:
                                 del st.session_state["flash_prod_selector"]
-                            st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri il Tab '📲 Offerta WhatsApp Flash'.")
+                            st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri la scheda '📲 Offerta WA'.")
 
-                    with btn_col4:
+                    with b_row2_c2:
                         if st.button("📄 Aggiungi a Volantino", use_container_width=True, key=f"btn_add_flyer_{selected_sku}", help="Aggiungi questo articolo a uno slot del Volantino promozionale A4"):
                             empty_idx = -1
                             for idx_s, slt in enumerate(st.session_state.flyer_slots):
@@ -712,7 +795,7 @@ with tab_catalog:
                                     empty_idx = idx_s
                                     break
                             if empty_idx == -1:
-                                st.warning("⚠️ Tutti i 6 slot del Volantino sono già occupati! Vai alla scheda '📄 Volantino Offerte' per liberare uno slot.")
+                                st.warning("⚠️ Tutti i 6 slot del Volantino sono già occupati! Vai alla scheda '📄 Volantino' per liberare uno slot.")
                             else:
                                 raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
                                 try:
@@ -741,7 +824,7 @@ with tab_catalog:
                                 st.session_state[f"flyer_price_{empty_idx}"] = p_val
                                 st.session_state[f"flyer_desc_{empty_idx}"] = clean_d
                                 
-                                st.toast(f"✅ {selected_sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino Offerte'.")
+                                st.toast(f"✅ {selected_sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino'.")
                                 st.rerun()
 
                     # --- ADD TO QUOTE QUICK SECTION ---
@@ -774,7 +857,7 @@ with tab_catalog:
                     with q_col_btn:
                         st.write("")
                         st.write("")
-                        if st.button("➕ Aggiungi al Preventivo", use_container_width=True, key=f"btn_add_{selected_sku}"):
+                        if st.button("➕ Aggiungi al Preventivo", type="primary", use_container_width=True, key=f"btn_add_{selected_sku}"):
                             # Check if already in items
                             existing = next((i for i in st.session_state.quote_items if i["cod_art"] == selected_sku), None)
                             if existing:
@@ -1662,7 +1745,7 @@ with tab_flash:
             <div style="font-weight:750; font-size:1.15rem; color:#1E293B;">Nessun prodotto selezionato per l'offerta WhatsApp</div>
             <p style="color:#64748B; font-size:0.92rem; max-width:560px; margin:10px auto 0 auto; line-height:1.5;">
                 Puoi caricare un articolo in due modi rapidi:<br>
-                1. Vai nella scheda <b>📦 Scheda Prodotto & Catalogo (Tab 1)</b> e clicca sul pulsante <b>📲 Offerta WhatsApp</b> presente nella scheda del prodotto desiderato.<br>
+                1. Vai nella scheda <b>📦 Catalogo (Tab 1)</b> e tocca il pulsante <b>📲 Offerta WhatsApp</b> presente nella scheda del prodotto desiderato.<br>
                 2. Oppure seleziona un articolo dal menu a tendina qui sopra cercando tra le <b>2.003 referenze</b> a listino.
             </p>
         </div>
