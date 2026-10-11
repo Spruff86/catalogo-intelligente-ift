@@ -1153,7 +1153,7 @@ with tab_foodcost:
     
 
 
-    # Calculate Recipe Financial Summary
+    # Calculate total ingredients food cost
     summary = food_cost_calculator.calculate_recipe_summary(
         ingredients=st.session_state.recipe_ingredients,
         target_food_cost_pct=st.session_state.recipe_target_pct,
@@ -1161,126 +1161,30 @@ with tab_foodcost:
         vat_rate=10.0,
         portions=st.session_state.recipe_portions
     )
+    total_food_cost = summary["total_recipe_cost"]
 
     # -------------------------------------------------------------
-    # 3. KPI METRICS DASHBOARD
+    # 1. TOTALE FOOD COST INGREDIENTI
     # -------------------------------------------------------------
-    st.write("")
-    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    
-    with m_col1:
-        st.markdown(f"""
-        <div class="fc-metric-card" style="border-left: 5px solid #0F172A;">
-            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Food Cost / Porzione</div>
-            <div class="fc-metric-val" style="color:#0F172A;">€ {summary['food_cost_per_portion']:.2f}</div>
-            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Totale Ricetta: <b>€ {summary['total_recipe_cost']:.2f}</b></div>
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); border: 1px solid #334155; border-radius: 12px; padding: 18px 24px; color: white; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em;">Totale Food Cost Ingredienti</div>
+            <div style="font-size: 2.1rem; font-weight: 800; color: #22C55E; margin-top: 2px;">€ {total_food_cost:.2f}</div>
         </div>
-        """, unsafe_allow_html=True)
-        
-    with m_col2:
-        st.markdown(f"""
-        <div class="fc-metric-card" style="border-left: 5px solid #2563EB;">
-            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Prezzo Menu Consigliato</div>
-            <div class="fc-metric-val" style="color:#2563EB;">€ {summary['recommended_selling_price_gross']:.2f}</div>
-            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Target <b>{summary['target_food_cost_pct']:g}%</b> (IVA 10% inc.)</div>
+        <div style="font-size: 0.85rem; color: #CBD5E1;">
+            📦 <b>{len(st.session_state.recipe_ingredients)}</b> ingredienti configurati
         </div>
-        """, unsafe_allow_html=True)
-        
-    with m_col3:
-        st.markdown(f"""
-        <div class="fc-metric-card" style="border-left: 5px solid #16A34A;">
-            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Margine Lordo / Piatto</div>
-            <div class="fc-metric-val" style="color:#16A34A;">€ {summary['gross_margin_per_portion']:.2f}</div>
-            <div style="font-size:0.75rem; color:#64748B; margin-top:2px;">Netto IVA: <b>€ {summary['actual_selling_price_net']:.2f}</b></div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with m_col4:
-        st.markdown(f"""
-        <div class="fc-metric-card" style="border-left: 5px solid {summary['status_color']};">
-            <div style="font-size:0.8rem; font-weight:700; color:#64748B; text-transform:uppercase;">Food Cost % Reale</div>
-            <div class="fc-metric-val" style="color:{summary['status_color']};">{summary['actual_food_cost_pct']:.1f}%</div>
-            <div style="font-size:0.75rem; font-weight:600; color:{summary['status_color']}; margin-top:2px;">{summary['status_label']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 4. INGREDIENTS LIST & LIVE BREAKDOWN
+    # 2. RICERCA E AGGIUNTA INGREDIENTE IN TESTA ALLA PAGINA
     # -------------------------------------------------------------
-    st.write("")
-    st.markdown(f"##### 📋 Distinta Base Ingredienti ({len(st.session_state.recipe_ingredients)} componenti):")
-    
-    ingredients_to_delete = []
-    
-    for idx, ing in enumerate(st.session_state.recipe_ingredients):
-        with st.container(border=True):
-            r_col_ing, r_col_qty, r_col_um, r_col_prc, r_col_tot, r_col_del = st.columns([3.6, 1.2, 1.1, 1.4, 1.8, 0.6])
-            
-            with r_col_ing:
-                sku_txt = f"`{ing['cod_art']}` " if ing.get('cod_art') else ""
-                st.markdown(f"<b>{sku_txt}{ing['name']}</b>", unsafe_allow_html=True)
-                
-            with r_col_qty:
-                new_q = st.number_input(
-                    "Dosaggio",
-                    min_value=0.01,
-                    value=float(ing.get("quantity", 100)),
-                    step=10.0 if str(ing.get("unit", "g")).lower() in ["g", "ml"] else 1.0,
-                    key=f"ing_q_{idx}"
-                )
-                ing["quantity"] = new_q
-                
-            with r_col_um:
-                units_list = ["g", "Kg", "ml", "L", "Pz", "etto", "fetta"]
-                current_u_idx = units_list.index(ing.get("unit", "g")) if ing.get("unit", "g") in units_list else 0
-                new_u = st.selectbox(
-                    "Unità",
-                    options=units_list,
-                    index=current_u_idx,
-                    key=f"ing_u_{idx}"
-                )
-                ing["unit"] = new_u
-                
-            with r_col_prc:
-                price_um = ing.get("price_um", "Kg")
-                new_p = st.number_input(
-                    f"Prezzo (€/{price_um})",
-                    min_value=0.0,
-                    value=float(ing.get("unit_price", 0.0)),
-                    step=0.50,
-                    format="%.2f",
-                    key=f"ing_p_{idx}"
-                )
-                ing["unit_price"] = new_p
-                
-            # Calculate row cost
-            row_cost = food_cost_calculator.calculate_ingredient_cost(new_q, new_u, new_p, price_um)
-            row_pct = (row_cost / summary["total_recipe_cost"] * 100.0) if summary["total_recipe_cost"] > 0 else 0.0
-            
-            with r_col_tot:
-                st.write("")
-                st.markdown(f"<div style='font-size:1.05rem; font-weight:800; color:#0F172A; text-align:right;'>€ {row_cost:.2f} <span style='font-size:0.75rem; font-weight:600; color:#64748B;'>({row_pct:.1f}%)</span></div>", unsafe_allow_html=True)
-                st.progress(min(1.0, max(0.0, row_pct / 100.0)))
-                
-            with r_col_del:
-                st.write("")
-                if st.button("🗑️", key=f"del_ing_{idx}", help="Rimuovi ingrediente"):
-                    ingredients_to_delete.append(idx)
-
-    if ingredients_to_delete:
-        for del_i in sorted(ingredients_to_delete, reverse=True):
-            st.session_state.recipe_ingredients.pop(del_i)
-        st.rerun()
-
-    # -------------------------------------------------------------
-    # 5. ADD INGREDIENT FROM IFT CATALOG
-    # -------------------------------------------------------------
-    st.write("")
-    with st.expander("➕ Aggiungi un Nuovo Ingrediente dal Catalogo IFT", expanded=False):
-        st.markdown("Seleziona una delle **2.003 referenze IFT a listino** con il suo *Prezzo Soglia* ufficiale precaricato:")
+    with st.container(border=True):
+        st.markdown("##### ➕ Aggiungi Ingrediente dal Catalogo IFT")
         
-        # Ricerca istantanea ingrediente
-        search_fc_ing = st.text_input("🔎 Cerca ingrediente nel catalogo (es. 'farina', 'burrata', 'wagyu', 'pomodoro'):", "", key="search_fc_ing_input")
+        search_fc_ing = st.text_input("🔎 Cerca ingrediente nel catalogo (es. 'farina', 'burrata', 'wagyu', 'pomodoro', 'A001012'):", "", key="search_fc_ing_input")
         
         all_catalog_prods = database.get_all_products_basic()
         if search_fc_ing.strip():
@@ -1339,6 +1243,72 @@ with tab_foodcost:
                         st.rerun()
                 else:
                     st.warning("Seleziona prima un prodotto dal menu a tendina.")
+
+    # -------------------------------------------------------------
+    # 3. DISTINTA BASE INGREDIENTI
+    # -------------------------------------------------------------
+    st.write("")
+    st.markdown(f"##### 📋 Distinta Base Ingredienti ({len(st.session_state.recipe_ingredients)} componenti):")
+    
+    ingredients_to_delete = []
+    
+    for idx, ing in enumerate(st.session_state.recipe_ingredients):
+        with st.container(border=True):
+            r_col_ing, r_col_qty, r_col_um, r_col_prc, r_col_tot, r_col_del = st.columns([3.6, 1.2, 1.1, 1.4, 1.5, 0.6])
+            
+            with r_col_ing:
+                sku_txt = f"`{ing['cod_art']}` " if ing.get('cod_art') else ""
+                st.markdown(f"<b>{sku_txt}{ing['name']}</b>", unsafe_allow_html=True)
+                
+            with r_col_qty:
+                new_q = st.number_input(
+                    "Dosaggio",
+                    min_value=0.01,
+                    value=float(ing.get("quantity", 100)),
+                    step=10.0 if str(ing.get("unit", "g")).lower() in ["g", "ml"] else 1.0,
+                    key=f"ing_q_{idx}"
+                )
+                ing["quantity"] = new_q
+                
+            with r_col_um:
+                units_list = ["g", "Kg", "ml", "L", "Pz", "etto", "fetta"]
+                current_u_idx = units_list.index(ing.get("unit", "g")) if ing.get("unit", "g") in units_list else 0
+                new_u = st.selectbox(
+                    "Unità",
+                    options=units_list,
+                    index=current_u_idx,
+                    key=f"ing_u_{idx}"
+                )
+                ing["unit"] = new_u
+                
+            with r_col_prc:
+                price_um = ing.get("price_um", "Kg")
+                new_p = st.number_input(
+                    f"Prezzo (€/{price_um})",
+                    min_value=0.0,
+                    value=float(ing.get("unit_price", 0.0)),
+                    step=0.50,
+                    format="%.2f",
+                    key=f"ing_p_{idx}"
+                )
+                ing["unit_price"] = new_p
+                
+            # Calculate row cost
+            row_cost = food_cost_calculator.calculate_ingredient_cost(new_q, new_u, new_p, price_um)
+            
+            with r_col_tot:
+                st.write("")
+                st.markdown(f"<div style='font-size:1.15rem; font-weight:800; color:#15803D; text-align:right;'>€ {row_cost:.2f}</div>", unsafe_allow_html=True)
+                
+            with r_col_del:
+                st.write("")
+                if st.button("🗑️", key=f"del_ing_{idx}", help="Rimuovi ingrediente"):
+                    ingredients_to_delete.append(idx)
+
+    if ingredients_to_delete:
+        for del_i in sorted(ingredients_to_delete, reverse=True):
+            st.session_state.recipe_ingredients.pop(del_i)
+        st.rerun()
 
 
 
