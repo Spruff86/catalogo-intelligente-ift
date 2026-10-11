@@ -109,6 +109,19 @@ def run_indexing():
     conn = database.get_connection()
     cursor = conn.cursor()
     
+    # Cache existing media mappings and extracted PDF texts before clearing
+    existing_media = {}
+    try:
+        cursor.execute("SELECT cod_art, gdrive_foto_id, gdrive_scheda_id, scheda_text FROM products")
+        for r in cursor.fetchall():
+            existing_media[r[0]] = {
+                "gdrive_foto_id": r[1] or "",
+                "gdrive_scheda_id": r[2] or "",
+                "scheda_text": r[3] or ""
+            }
+    except Exception:
+        pass
+
     # Clear existing data
     cursor.execute("DELETE FROM products")
     cursor.execute("DELETE FROM products_fts")
@@ -164,6 +177,15 @@ def run_indexing():
             
         gdrive_foto_id = get_gdrive_id(foto_path)
         gdrive_scheda_id = get_gdrive_id(scheda_path)
+
+        # Fallback to previously indexed media and PDF text if not found locally
+        cached = existing_media.get(cod_art, {})
+        if not gdrive_foto_id and cached.get("gdrive_foto_id"):
+            gdrive_foto_id = cached["gdrive_foto_id"]
+        if not gdrive_scheda_id and cached.get("gdrive_scheda_id"):
+            gdrive_scheda_id = cached["gdrive_scheda_id"]
+        if not scheda_text and cached.get("scheda_text"):
+            scheda_text = cached["scheda_text"]
 
         products_to_insert.append((
             cod_art,
