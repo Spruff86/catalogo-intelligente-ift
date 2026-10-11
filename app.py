@@ -588,10 +588,9 @@ with tab_catalog:
         }
         
         selected_label = st.selectbox(
-            "Seleziona il prodotto per aprire la scheda tecnica dettagliata:",
+            "👇 Tocca qui per scegliere tra gli articoli trovati:",
             options=list(product_options.keys()),
-            index=0,
-            label_visibility="collapsed"
+            index=0
         )
         
         selected_sku = product_options[selected_label]
@@ -1153,33 +1152,7 @@ with tab_foodcost:
     st.markdown("### 📊 Calcolatore di Food Cost & Ingegneria del Menu")
     st.caption("Componi ricette con i prodotti reali del catalogo IFT, analizza il costo per porzione, simula i margini di profitto lordo e travasa gli ingredienti nel preventivo.")
     
-    # -------------------------------------------------------------
-    # 1. TEMPLATE SELECTION BAR
-    # -------------------------------------------------------------
-    with st.container(border=True):
-        tpl_col1, tpl_col2 = st.columns([3, 1.2])
-        with tpl_col1:
-            template_options = ["-- Seleziona o mantieni ricetta corrente --"] + list(food_cost_calculator.RECIPE_TEMPLATES.keys())
-            chosen_tpl = st.selectbox(
-                "⚡ Carica una Ricetta Iconica Preimpostata:",
-                options=template_options,
-                index=0
-            )
-        with tpl_col2:
-            st.write("")
-            st.write("")
-            if chosen_tpl != "-- Seleziona o mantieni ricetta corrente --":
-                if st.button("📥 Carica Ricetta", use_container_width=True, type="primary"):
-                    tpl_data = food_cost_calculator.RECIPE_TEMPLATES[chosen_tpl]
-                    st.session_state.recipe_name = tpl_data["name"]
-                    st.session_state.recipe_category = tpl_data["category"]
-                    st.session_state.recipe_portions = tpl_data["portions"]
-                    st.session_state.recipe_target_pct = tpl_data["target_pct"]
-                    st.session_state.recipe_actual_price = tpl_data["actual_price"]
-                    st.session_state.recipe_ingredients = [dict(x) for x in tpl_data["ingredients"]]
-                    st.session_state.food_cost_ai_analysis = None
-                    st.toast(f"Caricata ricetta: {tpl_data['name']}!")
-                    st.rerun()
+
 
     # -------------------------------------------------------------
     # 2. RECIPE CONFIGURATION & FINANCIAL PARAMETERS
@@ -1354,16 +1327,33 @@ with tab_foodcost:
     with st.expander("➕ Aggiungi un Nuovo Ingrediente dal Catalogo IFT", expanded=False):
         st.markdown("Seleziona una delle **2.003 referenze IFT a listino** con il suo *Prezzo Soglia* ufficiale precaricato:")
         
+        # Ricerca istantanea ingrediente
+        search_fc_ing = st.text_input("🔎 Cerca ingrediente nel catalogo (es. 'farina', 'burrata', 'wagyu', 'pomodoro'):", "", key="search_fc_ing_input")
+        
         all_catalog_prods = database.get_all_products_basic()
+        if search_fc_ing.strip():
+            kw = search_fc_ing.strip().lower()
+            filtered_cat_prods = [
+                p for p in all_catalog_prods 
+                if kw in p['cod_art'].lower() or kw in p['descrizione_articolo'].lower()
+            ]
+        else:
+            filtered_cat_prods = all_catalog_prods
+            
         prod_options = ["-- Seleziona Prodotto a Catalogo --"] + [
             f"{p['cod_art']} — {p['descrizione_articolo']} (€ {p['prezzo_soglia']:.2f} / {p['um']})"
-            for p in all_catalog_prods
+            for p in filtered_cat_prods
         ]
         
         add_col_prod, add_col_qty, add_col_um, add_col_btn = st.columns([3.5, 1.2, 1.1, 1.5])
         
         with add_col_prod:
-            chosen_cat_prod = st.selectbox("Cerca o Seleziona Prodotto IFT", options=prod_options, index=0)
+            chosen_cat_prod = st.selectbox(
+                f"Prodotti trovati ({len(filtered_cat_prods)})", 
+                options=prod_options, 
+                index=0,
+                key="fc_ing_select"
+            )
             
         with add_col_qty:
             add_ing_qty = st.number_input("Dosaggio", min_value=0.01, value=100.0, step=10.0, key="add_cat_qty")
