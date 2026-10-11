@@ -1153,53 +1153,6 @@ with tab_foodcost:
     
 
 
-    # -------------------------------------------------------------
-    # 2. RECIPE CONFIGURATION & FINANCIAL PARAMETERS
-    # -------------------------------------------------------------
-    with st.container(border=True):
-        st.markdown("##### 🍽️ Dettagli Piatto & Parametri Economici")
-        c_r1, c_r2, c_r3, c_r4, c_r5 = st.columns([3.2, 2.0, 1.2, 1.8, 1.8])
-        
-        with c_r1:
-            st.session_state.recipe_name = st.text_input(
-                "Nome Ricetta / Piatto", 
-                value=st.session_state.recipe_name
-            )
-        with c_r2:
-            cat_list = ["Pizzeria Gourmet", "Pizzeria Classica", "Primi Piatti", "Secondi Piatti", "Antipasti & Taglieri", "Bistrot & Panini", "Dessert"]
-            current_cat_idx = cat_list.index(st.session_state.recipe_category) if st.session_state.recipe_category in cat_list else 0
-            st.session_state.recipe_category = st.selectbox(
-                "Categoria Portata", 
-                options=cat_list,
-                index=current_cat_idx
-            )
-        with c_r3:
-            st.session_state.recipe_portions = st.number_input(
-                "Resa (Porzioni)", 
-                min_value=1, 
-                value=int(st.session_state.recipe_portions), 
-                step=1
-            )
-        with c_r4:
-            st.session_state.recipe_target_pct = st.number_input(
-                "Target Food Cost %", 
-                min_value=10.0, 
-                max_value=60.0, 
-                value=float(st.session_state.recipe_target_pct), 
-                step=1.0, 
-                format="%.1f",
-                help="Lo standard ideale nella ristorazione/pizzeria è tra il 25% e il 30%."
-            )
-        with c_r5:
-            st.session_state.recipe_actual_price = st.number_input(
-                "Prezzo Menu (€ IVA 10% inc.)", 
-                min_value=0.5, 
-                value=float(st.session_state.recipe_actual_price), 
-                step=0.50, 
-                format="%.2f",
-                help="Prezzo di vendita al pubblico sul menu del ristorante o pizzeria."
-            )
-
     # Calculate Recipe Financial Summary
     summary = food_cost_calculator.calculate_recipe_summary(
         ingredients=st.session_state.recipe_ingredients,
