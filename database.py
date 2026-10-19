@@ -302,10 +302,18 @@ def get_catalog_stats() -> Dict[str, Any]:
     cursor.execute("SELECT COUNT(*) FROM products")
     total_products = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM products WHERE foto_path IS NOT NULL AND foto_path != ''")
+    cursor.execute("""
+        SELECT COUNT(*) FROM products 
+        WHERE (foto_path IS NOT NULL AND foto_path != '') 
+           OR (gdrive_foto_id IS NOT NULL AND gdrive_foto_id != '')
+    """)
     with_foto = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM products WHERE scheda_path IS NOT NULL AND scheda_path != ''")
+    cursor.execute("""
+        SELECT COUNT(*) FROM products 
+        WHERE (scheda_path IS NOT NULL AND scheda_path != '') 
+           OR (gdrive_scheda_id IS NOT NULL AND gdrive_scheda_id != '')
+    """)
     with_scheda = cursor.fetchone()[0]
     
     cursor.execute("SELECT COUNT(*) FROM products WHERE scheda_text IS NOT NULL AND length(scheda_text) > 20")
