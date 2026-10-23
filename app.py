@@ -1792,27 +1792,7 @@ with tab_flash:
                     index=cur_style_idx
                 )
 
-        # 3. Culinary Presentation & Pairing Enhancement
-        with st.container(border=True):
-            p_hdr_col1, p_hdr_col2 = st.columns([3, 1.5])
-            with p_hdr_col1:
-                st.markdown("##### 👨‍🍳 3. Presentazione Gastronomica & Consiglio di Abbinamento:")
-                st.caption("Il testo include le peculiarità d'eccellenza dell'articolo e un consiglio gastronomico applicativo.")
-            with p_hdr_col2:
-                st.write("")
-                if st.button("✨ Rigenera con Chef AI (PDF)", use_container_width=True, help="Usa Gemini per analizzare la scheda tecnica PDF e generare un consiglio gourmet mirato"):
-                    with st.spinner("Estrazione dati scheda tecnica e redazione consiglio dello Chef..."):
-                        ai_pitch = whatsapp_offer_generator.generate_ai_pitch_and_pairing(
-                            product=flash_prod,
-                            api_key=user_api_key if user_api_key else env_api_key,
-                            model_name=model_choice
-                        )
-                        st.session_state.flash_offer_ai_pitch = ai_pitch
-                        st.toast("Consiglio ed abbinamento AI generati con successo!")
-                        st.rerun()
-
-        # Determine pitch text
-        active_pitch = st.session_state.flash_offer_ai_pitch if st.session_state.flash_offer_ai_pitch else whatsapp_offer_generator.generate_default_pitch_and_pairing(flash_prod)
+        # Build clean commercial message
         agent_sign = st.session_state.get("quote_customer", {}).get("agent_name", "Italian Food Trading")
         fresh_message = whatsapp_offer_generator.build_flash_offer_message(
             product=flash_prod,
@@ -1820,18 +1800,18 @@ with tab_flash:
             customer_name=st.session_state.flash_offer_client,
             agent_name=agent_sign,
             offer_style=st.session_state.flash_offer_style,
-            custom_pitch=active_pitch
+            custom_pitch=""
         )
 
         # Detect if inputs changed to sync editor
-        current_sig = f"{flash_prod.get('cod_art')}_{st.session_state.flash_offer_price}_{st.session_state.flash_offer_client}_{st.session_state.flash_offer_style}_{hash(active_pitch)}_{agent_sign}"
+        current_sig = f"{flash_prod.get('cod_art')}_{st.session_state.flash_offer_price}_{st.session_state.flash_offer_client}_{st.session_state.flash_offer_style}_{agent_sign}"
         if current_sig != st.session_state.flash_offer_last_sig or "wa_flash_editor" not in st.session_state:
             st.session_state.flash_offer_last_sig = current_sig
             st.session_state["wa_flash_editor"] = fresh_message
 
-        # 4. Message Preview, Product Photo & WhatsApp Send
+        # 3. Message Preview, Product Photo & WhatsApp Send
         st.write("")
-        st.markdown("##### 💬 4. Anteprima Messaggio WhatsApp & Foto Prodotto:")
+        st.markdown("##### 💬 3. Anteprima Messaggio WhatsApp & Foto Prodotto:")
         st.caption("Verifica il messaggio e la foto ufficiale prima di inviarli o copiarli:")
 
         col_msg, col_photo = st.columns([1.7, 1.3])
@@ -1853,21 +1833,33 @@ with tab_flash:
                 flash_prod.get('foto_path'), 
                 flash_prod.get('foto_filename'), 
                 config.FOTO_DIR, 
-                sku=flash_prod.get('cod_art', '')
+                sku=flash_prod.get('cod_art', ''),
+                gdrive_id=flash_prod.get('gdrive_foto_id')
             )
             
-            if flash_img_path and os.path.exists(flash_img_path):
+            if flash_img_path and (flash_img_path.startswith("http") or os.path.exists(flash_img_path)):
                 st.image(flash_img_path, use_container_width=True)
                 
-                with open(flash_img_path, "rb") as img_f:
-                    img_bytes = img_f.read()
+                img_bytes = b""
+                if os.path.exists(flash_img_path):
+                    with open(flash_img_path, "rb") as img_f:
+                        img_bytes = img_f.read()
+                elif flash_img_path.startswith("http"):
+                    try:
+                        import requests
+                        r_img = requests.get(flash_img_path, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
+                        if r_img.status_code == 200:
+                            img_bytes = r_img.content
+                    except Exception:
+                        pass
                 
-                img_ext = os.path.splitext(flash_img_path)[1].lower()
-                mime_type = "image/png" if img_ext == ".png" else "image/jpeg"
-                img_filename = os.path.basename(flash_img_path)
-                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-                
-                st.download_button(
+                if img_bytes:
+                    img_ext = os.path.splitext(flash_img_path)[1].lower() if not flash_img_path.startswith("http") else ".jpg"
+                    mime_type = "image/png" if img_ext == ".png" else "image/jpeg"
+                    img_filename = f"{flash_prod.get('cod_art', 'prodotto')}{img_ext}"
+                    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    
+                    st.download_button(
                     label="📥 Scarica Foto per WhatsApp",
                     data=img_bytes,
                     file_name=img_filename,

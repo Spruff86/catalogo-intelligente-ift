@@ -142,8 +142,6 @@ def build_flash_offer_message(
     elif "Promo" in offer_style:
         style_badge = "⚡ *PROMOZIONE FLASH A LISTINO*"
         
-    pitch_text = custom_pitch.strip() if custom_pitch.strip() else generate_default_pitch_and_pairing(product)
-    
     lines = [
         f"🇮🇹 *ITALIAN FOOD TRADING S.r.l.*",
         f"{style_badge}",
@@ -154,9 +152,13 @@ def build_flash_offer_message(
         f"🏷️ *Prezzo Offerto: € {offer_price:.2f} / {um}*",
     ]
     
-    lines.append("")
-    lines.append("✨ *PRESENTAZIONE & CONSIGLIO DI UTILIZZO:*")
-    lines.append(pitch_text)
+    if imballo:
+        lines.append(f"📦 Imballo: {imballo}")
+        
+    if custom_pitch and custom_pitch.strip():
+        lines.append("")
+        lines.append(custom_pitch.strip())
+        
     lines.append("")
     lines.append("⚖️ _Disponibilità immediata a magazzino. Per ordini o per bloccare un lotto alla prossima consegna, rispondimi pure direttamente a questo messaggio!_")
     lines.append("")
