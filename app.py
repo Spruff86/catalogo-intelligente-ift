@@ -1636,21 +1636,23 @@ with tab_flash:
         </div>
         """, unsafe_allow_html=True)
         
+    def reset_flash_offer():
+        st.session_state.flash_offer_sku = None
+        st.session_state.flash_offer_price = 0.0
+        st.session_state.flash_offer_client = ""
+        st.session_state.flash_offer_phone = ""
+        st.session_state.flash_offer_style = "🔥 Opportunità Speciale"
+        st.session_state.flash_offer_ai_pitch = ""
+        st.session_state.flash_offer_last_sig = ""
+        st.session_state["flash_prod_selector"] = "-- Nessun Prodotto Selezionato --"
+        st.session_state["search_wa_prod_input"] = ""
+        if "wa_flash_editor" in st.session_state:
+            del st.session_state["wa_flash_editor"]
+
     with h_col2:
         st.write("")
         st.write("")
-        if st.button("🧹 Nuova Offerta / Svuota", use_container_width=True, help="Ripulisce tutti i campi per creare una nuova offerta da zero"):
-            st.session_state.flash_offer_sku = None
-            st.session_state.flash_offer_price = 0.0
-            st.session_state.flash_offer_client = ""
-            st.session_state.flash_offer_phone = ""
-            st.session_state.flash_offer_style = "🔥 Opportunità Speciale"
-            st.session_state.flash_offer_ai_pitch = ""
-            st.session_state.flash_offer_last_sig = ""
-            if "wa_flash_editor" in st.session_state:
-                del st.session_state["wa_flash_editor"]
-            st.toast("🧹 Scheda offerta ripulita! Puoi iniziarne una nuova.")
-            st.rerun()
+        st.button("🧹 Nuova Offerta / Svuota", on_click=reset_flash_offer, use_container_width=True, help="Ripulisce tutti i campi per creare una nuova offerta da zero")
 
     with st.container(border=True):
         st.markdown("##### 📦 1. Seleziona il Prodotto da Proporre:")
@@ -1673,12 +1675,14 @@ with tab_flash:
             for p in filtered_prods
         ]
         
-        # Synchronize selector if flash_offer_sku was transferred from Tab 1
+        # Synchronize selector if flash_offer_sku was transferred from Tab 1 or cleared
         if st.session_state.get("flash_offer_sku"):
             matching_opt = next((p for p in prod_options if p.startswith(f"{st.session_state.flash_offer_sku} —")), None)
             if matching_opt:
                 st.session_state["flash_prod_selector"] = matching_opt
-        if "flash_prod_selector" not in st.session_state or st.session_state["flash_prod_selector"] not in prod_options:
+            else:
+                st.session_state["flash_prod_selector"] = prod_options[0]
+        else:
             st.session_state["flash_prod_selector"] = prod_options[0]
 
         chosen_p_str = st.selectbox(
@@ -1687,9 +1691,11 @@ with tab_flash:
             key="flash_prod_selector"
         )
         
-        if chosen_p_str == "-- Nessun Prodotto Selezionato --":
+        if not chosen_p_str or chosen_p_str.startswith("--"):
             st.session_state.flash_offer_sku = None
             st.session_state.flash_offer_price = 0.0
+            st.session_state.flash_offer_client = ""
+            st.session_state.flash_offer_phone = ""
             st.session_state.flash_offer_ai_pitch = ""
             st.session_state.flash_offer_last_sig = ""
             if "wa_flash_editor" in st.session_state:
@@ -1716,8 +1722,14 @@ with tab_flash:
                 # Product preview mini-card
                 p_c1, p_c2 = st.columns([1, 4])
                 with p_c1:
-                    img_path = resolve_file(flash_prod.get('foto_path'), flash_prod.get('foto_filename'), config.FOTO_DIR)
-                    if img_path and os.path.exists(img_path):
+                    img_path = resolve_file(
+                        flash_prod.get('foto_path'), 
+                        flash_prod.get('foto_filename'), 
+                        config.FOTO_DIR, 
+                        sku=flash_prod.get('cod_art', ''),
+                        gdrive_id=flash_prod.get('gdrive_foto_id')
+                    )
+                    if img_path and (img_path.startswith("http") or os.path.exists(img_path)):
                         try:
                             st.image(img_path, use_container_width=True)
                         except Exception:
