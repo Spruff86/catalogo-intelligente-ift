@@ -806,7 +806,7 @@ with tab_catalog:
                                 clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
                                 if len(clean_d) > 105:
                                     clean_d = clean_d[:102].strip() + "..."
-                                foto_res = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, sku=selected_sku)
+                                foto_res = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, sku=selected_sku, gdrive_id=current_prod.get('gdrive_foto_id'))
                                 
                                 # 1. Update flyer_slots
                                 st.session_state.flyer_slots[empty_idx] = {
@@ -2167,8 +2167,15 @@ with tab_flyer:
                             )
                         with p_c2:
                             foto = slot.get("foto_path")
-                            if foto and os.path.exists(foto):
-                                st.markdown("<div style='margin-top:28px; color:#16A34A; font-size:0.82rem; font-weight:700;'>📸 Foto HD Presente</div>", unsafe_allow_html=True)
+                            if (not foto or not (foto.startswith("http") or os.path.exists(foto))) and slot.get("cod_art"):
+                                p_obj = database.get_product_by_code(slot["cod_art"])
+                                if p_obj:
+                                    foto = resolve_file(p_obj.get('foto_path'), p_obj.get('foto_filename'), config.FOTO_DIR, sku=slot["cod_art"], gdrive_id=p_obj.get('gdrive_foto_id'))
+                                    slot["foto_path"] = foto or ""
+
+                            if foto and (foto.startswith("http") or os.path.exists(foto)):
+                                st.image(foto, width=80)
+                                st.caption("📸 Foto HD Presente")
                             else:
                                 st.markdown("<div style='margin-top:28px; color:#94A3B8; font-size:0.82rem;'>📷 Nessuna foto</div>", unsafe_allow_html=True)
 

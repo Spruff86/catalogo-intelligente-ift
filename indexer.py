@@ -110,6 +110,48 @@ def infer_category(sku: str, desc: str, env: str) -> str:
         return 'Specialità Fresche'
     return 'Drogheria & Specialità'
 
+def load_historical_prices() -> dict:
+    """Extracts known non-zero prices from previously indexed Excel files in the base directory."""
+    import glob
+    historical = {}
+    excel_files = sorted(glob.glob(str(config.BASE_DIR / "Dati per catalogo*.xlsx")), reverse=True)
+    for fn in excel_files:
+        try:
+            wb = openpyxl.load_workbook(fn, read_only=True, data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            h_idx = -1
+            for i, r in enumerate(rows):
+                if any(c in ['Cod_art', 'Item_Code'] for c in [str(x) for x in r if x]):
+                    h_idx = i
+                    break
+            if h_idx == -1:
+                continue
+            header = [str(x).strip() if x is not None else "" for x in rows[h_idx]]
+            s_idx = header.index('Soglia') if 'Soglia' in header else -1
+            c_idx = header.index('Contratto') if 'Contratto' in header else -1
+            if s_idx == -1 and c_idx == -1:
+                continue
+            for r in rows[h_idx + 1:]:
+                sku = str(r[2] or '').strip().upper()
+                if not sku:
+                    continue
+                s_val = r[s_idx] if s_idx != -1 and s_idx < len(r) else 0
+                c_val = r[c_idx] if c_idx != -1 and c_idx < len(r) else 0
+                try:
+                    sf = float(str(s_val or 0).replace(',', '.').strip())
+                except (ValueError, TypeError):
+                    sf = 0.0
+                try:
+                    cf = float(str(c_val or 0).replace(',', '.').strip())
+                except (ValueError, TypeError):
+                    cf = 0.0
+                if (sf > 0 or cf > 0) and sku not in historical:
+                    historical[sku] = (sf, cf)
+        except Exception as e:
+            print(f"Notice reading historical file {fn}: {e}")
+    return historical
+
 def run_indexing():
     print("Initializing database...")
     database.init_db()
@@ -160,15 +202,21 @@ def run_indexing():
     conn = database.get_connection()
     cursor = conn.cursor()
     
-    # Cache existing media mappings and extracted PDF texts before clearing
+    # Load historical prices to guard against empty or zero price exports from SAP
+    historical_prices = load_historical_prices()
+    print(f"Loaded {len(historical_prices)} reference prices for price integrity guard.")
+    
+    # Cache existing media mappings, extracted PDF texts, and prices before clearing
     existing_media = {}
     try:
-        cursor.execute("SELECT cod_art, gdrive_foto_id, gdrive_scheda_id, scheda_text FROM products")
+        cursor.execute("SELECT cod_art, gdrive_foto_id, gdrive_scheda_id, scheda_text, prezzo_indicativo, prezzo_contratto FROM products")
         for r in cursor.fetchall():
             existing_media[r[0]] = {
                 "gdrive_foto_id": r[1] or "",
                 "gdrive_scheda_id": r[2] or "",
-                "scheda_text": r[3] or ""
+                "scheda_text": r[3] or "",
+                "prezzo_indicativo": r[4] or "0",
+                "prezzo_contratto": r[5] or "0"
             }
     except Exception:
         pass
@@ -206,6 +254,26 @@ def run_indexing():
         prezzo_indicativo = get_val(row, "Soglia") or get_val(row, "Obiettivo") or get_val(row, "Contratto") or get_val(row, "Prz_BP")
         # Internal reference price: Prezzo Contratto
         prezzo_contratto = get_val(row, "Contratto") or get_val(row, "Prz_BP") or get_val(row, "Soglia")
+
+        # Price Integrity Guard: if incoming price is zero or missing, fallback to valid historical price
+        try:
+            p_val = float(str(prezzo_indicativo or "0").replace(',', '.').strip())
+        except (ValueError, TypeError):
+            p_val = 0.0
+
+        if p_val <= 0.0:
+            cached_info = existing_media.get(cod_art, {})
+            c_p = cached_info.get("prezzo_indicativo")
+            if c_p and c_p not in ("0", "0.0", "", "None"):
+                prezzo_indicativo = c_p
+                prezzo_contratto = cached_info.get("prezzo_contratto") or c_p
+            elif cod_art_clean in historical_prices:
+                h_soglia, h_contratto = historical_prices[cod_art_clean]
+                if h_soglia > 0:
+                    prezzo_indicativo = str(h_soglia)
+                if h_contratto > 0:
+                    prezzo_contratto = str(h_contratto)
+
         art_attivo = get_val(row, "Art_Attivo", "Y")
         
         # Match Photo
@@ -225,22 +293,14 @@ def run_indexing():
             
         scheda_filename = os.path.basename(scheda_path) if scheda_path else ""
         
-        # Extract PDF text if scheda exists
-        scheda_text = ""
-        if scheda_path and os.path.exists(scheda_path):
+        # Reuse cached PDF text and gdrive IDs if already available (fast indexing)
+        cached = existing_media.get(cod_art, {})
+        scheda_text = cached.get("scheda_text", "")
+        if not scheda_text and scheda_path and os.path.exists(scheda_path):
             scheda_text = extract_pdf_text(scheda_path)
             
-        gdrive_foto_id = get_gdrive_id(foto_path)
-        gdrive_scheda_id = get_gdrive_id(scheda_path)
-
-        # Fallback to previously indexed media and PDF text if not found locally
-        cached = existing_media.get(cod_art, {})
-        if not gdrive_foto_id and cached.get("gdrive_foto_id"):
-            gdrive_foto_id = cached["gdrive_foto_id"]
-        if not gdrive_scheda_id and cached.get("gdrive_scheda_id"):
-            gdrive_scheda_id = cached["gdrive_scheda_id"]
-        if not scheda_text and cached.get("scheda_text"):
-            scheda_text = cached["scheda_text"]
+        gdrive_foto_id = cached.get("gdrive_foto_id") or get_gdrive_id(foto_path)
+        gdrive_scheda_id = cached.get("gdrive_scheda_id") or get_gdrive_id(scheda_path)
 
         products_to_insert.append((
             cod_art,

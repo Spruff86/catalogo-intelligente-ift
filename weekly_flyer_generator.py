@@ -2,6 +2,7 @@ import io
 import os
 import re
 import urllib.parse
+import requests
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from PIL import Image as PILImage
@@ -12,6 +13,72 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from datetime import datetime, timedelta
 import config
+import database
+
+# In-memory cache for downloaded web images to speed up flyer generation
+_IMG_BYTES_CACHE = {}
+
+def get_flyer_image_element(foto_path: str, sku: str = "", max_w: float = 246, max_h: float = 100) -> Optional[RLImage]:
+    """Safely loads an image for ReportLab from a local path or a remote Google Drive CDN URL."""
+    # 1. Fallback lookup via database if foto_path is empty
+    if not foto_path and sku:
+        prod = database.get_product_by_code(sku)
+        if prod:
+            gdrive_id = prod.get('gdrive_foto_id')
+            if gdrive_id:
+                foto_path = f"https://lh3.googleusercontent.com/d/{gdrive_id}=w800"
+            elif prod.get('foto_path') and os.path.exists(prod['foto_path']):
+                foto_path = prod['foto_path']
+
+    # 2. Check local file if exists
+    if foto_path and os.path.exists(foto_path):
+        try:
+            with PILImage.open(foto_path) as im:
+                iw, ih = im.size
+            ratio = min(max_w / iw, max_h / ih)
+            return RLImage(foto_path, width=iw * ratio, height=ih * ratio)
+        except Exception as e:
+            print(f"Error loading local flyer image {foto_path}: {e}")
+
+    # 3. Check if local file exists by SKU stem in config.FOTO_DIR
+    if sku and hasattr(config, 'FOTO_DIR') and config.FOTO_DIR.exists():
+        sku_clean = str(sku).strip().upper()
+        for ext in ['.jpg', '.jpeg', '.png', '.JPG', '.PNG']:
+            cand = config.FOTO_DIR / f"{sku_clean}{ext}"
+            if cand.exists():
+                try:
+                    with PILImage.open(str(cand)) as im:
+                        iw, ih = im.size
+                    ratio = min(max_w / iw, max_h / ih)
+                    return RLImage(str(cand), width=iw * ratio, height=ih * ratio)
+                except Exception:
+                    pass
+
+    # 4. Check if HTTP / HTTPS (Google Drive CDN or external URL)
+    if foto_path and (foto_path.startswith("http://") or foto_path.startswith("https://")):
+        try:
+            if foto_path in _IMG_BYTES_CACHE:
+                raw_bytes = _IMG_BYTES_CACHE[foto_path]
+            else:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                resp = requests.get(foto_path, headers=headers, timeout=6)
+                if resp.status_code == 200 and resp.content:
+                    raw_bytes = resp.content
+                    _IMG_BYTES_CACHE[foto_path] = raw_bytes
+                else:
+                    raw_bytes = None
+
+            if raw_bytes:
+                img_buf = io.BytesIO(raw_bytes)
+                with PILImage.open(img_buf) as im:
+                    iw, ih = im.size
+                ratio = min(max_w / iw, max_h / ih)
+                img_buf.seek(0)
+                return RLImage(img_buf, width=iw * ratio, height=ih * ratio)
+        except Exception as e:
+            print(f"Error fetching remote flyer image {foto_path}: {e}")
+
+    return None
 
 def escape_xml(text: Any) -> str:
     """Safely cleans and escapes text for ReportLab XML Paragraphs."""
@@ -224,26 +291,10 @@ def generate_weekly_flyer_pdf(
             clean_d = clean_d[:102].strip() + '...'
         clean_desc_xml = escape_xml(clean_d)
 
-        # Image processing
+        # Image processing (Local files or Google Drive URLs)
         foto_path = slot.get('foto_path', '')
-        if not (foto_path and os.path.exists(foto_path)) and slot.get('cod_art') and hasattr(config, 'FOTO_DIR') and config.FOTO_DIR.exists():
-            sku_raw = str(slot.get('cod_art', '')).strip().upper()
-            for ext in ['.jpg', '.jpeg', '.png', '.JPG', '.PNG']:
-                cand = config.FOTO_DIR / f"{sku_raw}{ext}"
-                if cand.exists():
-                    foto_path = str(cand)
-                    break
-
-        img_element = None
-        if foto_path and os.path.exists(foto_path):
-            try:
-                with PILImage.open(foto_path) as im:
-                    iw, ih = im.size
-                max_w, max_h = 246, 100
-                ratio = min(max_w / iw, max_h / ih)
-                img_element = RLImage(foto_path, width=iw * ratio, height=ih * ratio)
-            except Exception:
-                img_element = None
+        sku_clean = str(slot.get('cod_art', '')).strip().upper()
+        img_element = get_flyer_image_element(foto_path=foto_path, sku=sku_clean, max_w=246, max_h=100)
 
         if not img_element:
             img_element = Paragraph('<font color="#94A3B8"><i>Foto da catalogo</i></font>', style_placeholder)
