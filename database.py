@@ -93,12 +93,12 @@ def normalize_italian_term(word: str) -> List[str]:
         "prosciutto": ["%prosc%", "%prosciutt%"],
         "prosciutti": ["%prosc%", "%prosciutt%"],
         "prosc": ["%prosc%", "%prosciutt%"],
-        "cotto": ["%cott%"],
-        "cotti": ["%cott%"],
-        "cotta": ["%cott%"],
-        "crudo": ["%crud%"],
-        "crudi": ["%crud%"],
-        "cruda": ["%crud%"],
+        "cotto": ["% cotto%", "%.cotto%", "%cotto %", "%cotto"],
+        "cotti": ["% cotto%", "%.cotto%", "%cotto %", "%cotti%"],
+        "cotta": ["% cotto%", "%.cotto%", "%cotta%"],
+        "crudo": ["%crudo%", "%.crudo%", "%cruda%"],
+        "crudi": ["%crudo%", "%.crudo%", "%crudi%"],
+        "cruda": ["%crudo%", "%.crudo%", "%cruda%"],
         "mozzarella": ["%mozz%"],
         "mozzarelle": ["%mozz%"],
         "formaggio": ["%formagg%", "%form%"],
@@ -117,6 +117,8 @@ def normalize_italian_term(word: str) -> List[str]:
         "carni": ["%carn%"],
         "manzo": ["%manz%", "%bovin%"],
         "manzi": ["%manz%", "%bovin%"],
+        "scottona": ["%scotton%"],
+        "scottone": ["%scotton%"],
         "olio": ["%oli%"],
         "aceto": ["%acet%"],
         "riso": ["%ris%"],
@@ -155,7 +157,18 @@ def extract_meaningful_tokens(query: str) -> List[str]:
     words = re.findall(r'\b[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]{2,}\b', query.lower())
     return [w for w in words if w not in conversational_stop_words]
 
-def search_products(query: str = "", category: str = "", storage_env: str = "", limit: Optional[int] = None) -> List[Dict[str, Any]]:
+def search_products(
+    query: str = "", 
+    category: str = "", 
+    storage_env: str = "", 
+    dietary: Optional[str] = None, 
+    limit: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Searches products strictly by cod_art or descrizione_articolo (product name).
+    Does NOT search technical sheets (scheda_text) or commercial descriptions, 
+    as explicitly required.
+    """
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -170,6 +183,11 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         base_conditions.append("ambiente_cons = ?")
         base_params.append(storage_env)
         
+    if dietary == "senza_glutine":
+        base_conditions.append("(scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%' OR scheda_text LIKE '%assenza di glutine%' OR descrizione_articolo LIKE '%S/GLUT%' OR descrizione_articolo LIKE '%SENZA GLUT%')")
+    elif dietary == "senza_lattosio":
+        base_conditions.append("(scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%' OR scheda_text LIKE '%assenza di lattosio%' OR descrizione_articolo LIKE '%S/LATT%' OR descrizione_articolo LIKE '%SENZA LATT%')")
+        
     clean_query = query.strip()
     limit_clause = f" LIMIT {int(limit)}" if (limit and limit > 0) else ""
     
@@ -180,111 +198,68 @@ def search_products(query: str = "", category: str = "", storage_env: str = "", 
         rows = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return rows
-        
-    clean_lower = clean_query.lower()
-    is_gluten_free_query = any(p in clean_lower for p in ["senza glutine", "gluten free", "per celiaci", "no glutine", "senza glut."])
-    is_lactose_free_query = any(p in clean_lower for p in ["senza lattosio", "delattosato", "lactose free", "no lattosio", "delattosata"])
-    
-    # Extract core tokens
-    tokens = extract_meaningful_tokens(clean_query)
-    numeric_tokens = re.findall(r'\b\d+\b', clean_query)
-    
-    # Filter tokens if specific allergen query
-    filtered_tokens = []
-    for t in tokens:
-        if is_gluten_free_query and t in ["glutine", "gluten", "celiaci"]:
-            continue
-        if is_lactose_free_query and t in ["lattosio", "lactose", "delattosato"]:
-            continue
-        filtered_tokens.append(t)
-        
-    # Food/domain tokens (non-numeric)
-    food_tokens = [t for t in filtered_tokens if not t.isdigit() and len(t) > 2]
-    if not food_tokens:
-        food_tokens = [t for t in filtered_tokens if len(t) > 1]
-    if not food_tokens:
-        food_tokens = re.findall(r'\b[a-zA-Z0-9]{2,}\b', clean_lower)
-        
-    # Helper to execute query with token conditions
-    def execute_query(required_tokens: List[str]):
-        score_parts = []
-        score_params = []
-        
-        # Exact SKU match
-        score_parts.append("CASE WHEN UPPER(cod_art) = UPPER(?) THEN 1000 ELSE 0 END")
-        score_params.append(clean_query)
-        
-        # SKU prefix match
-        score_parts.append("CASE WHEN UPPER(cod_art) LIKE UPPER(?) THEN 500 ELSE 0 END")
-        score_params.append(f"{clean_query}%")
-        
-        # Description exact phrase match
-        score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 300 ELSE 0 END")
-        score_params.append(f"%{clean_query}%")
-        
-        # Technical relevance boosts in PDF text or description
-        for num in numeric_tokens:
-            score_parts.append("CASE WHEN (scheda_text LIKE ? OR descrizione_articolo LIKE ?) THEN 250 ELSE 0 END")
-            score_params.extend([f"%{num}%", f"%{num}%"])
-            
-        for kw in ["w350", "w380", "w300", "w 3", "manitoba", "lunga lievitazione", "alta qualita", "dop"]:
-            score_parts.append(f"CASE WHEN (scheda_text LIKE '%{kw}%' OR descrizione_articolo LIKE '%{kw}%') THEN 200 ELSE 0 END")
-            
-        term_conditions = []
-        term_params = []
-        
-        for token in required_tokens:
-            variants = normalize_italian_term(token)
-            if not variants:
-                continue
-                
-            variant_subconditions = []
-            for v in variants:
-                # Search product identification fields (NOT allergen cross-contamination text)
-                variant_subconditions.append("(cod_art LIKE ? OR descrizione_articolo LIKE ? OR gruppo_art LIKE ? OR descrizione_commerciale LIKE ?)")
-                term_params.extend([v, v, v, v])
-                
-                score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 120 ELSE 0 END")
-                score_params.append(v)
-                
-            if variant_subconditions:
-                term_conditions.append(f"({' OR '.join(variant_subconditions)})")
-                
-        # Dietary / Allergen constraints (searched specifically in technical sheets)
-        if is_gluten_free_query:
-            term_conditions.append("(scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%' OR scheda_text LIKE '%assenza di glutine%' OR descrizione_articolo LIKE '%S/GLUT%' OR descrizione_articolo LIKE '%SENZA GLUT%')")
-            score_parts.append("CASE WHEN (scheda_text LIKE '%senza glutine%' OR scheda_text LIKE '%gluten free%') THEN 300 ELSE 0 END")
-            
-        if is_lactose_free_query:
-            term_conditions.append("(scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%' OR scheda_text LIKE '%assenza di lattosio%' OR descrizione_articolo LIKE '%S/LATT%' OR descrizione_articolo LIKE '%SENZA LATT%')")
-            score_parts.append("CASE WHEN (scheda_text LIKE '%senza lattosio%' OR scheda_text LIKE '%lactose free%') THEN 300 ELSE 0 END")
-            
-        score_sql = " + ".join(score_parts) if score_parts else "0"
-        all_conditions = base_conditions + term_conditions
-        where_clause = " WHERE " + " AND ".join(all_conditions) if all_conditions else ""
-        
-        all_params = score_params + base_params + term_params
-        sql = f"""
-        SELECT *, ({score_sql}) AS relevance_score
-        FROM products
-        {where_clause}
-        ORDER BY relevance_score DESC, descrizione_articolo ASC{limit_clause}
-        """
-        
-        cursor.execute(sql, all_params)
-        return [dict(row) for row in cursor.fetchall()]
 
-    # 1. Try with food tokens
-    results = execute_query(food_tokens)
+    # Break query into tokens / parts of words
+    words = [w.strip() for w in clean_query.split() if w.strip()]
     
-    # 2. If 0, try individual food tokens (e.g. 'farine')
-    if not results and len(food_tokens) > 1:
-        for single_token in food_tokens:
-            single_res = execute_query([single_token])
-            if single_res:
-                results = single_res
-                break
-
+    score_parts = []
+    score_params = []
+    
+    # 1. Exact SKU match (highest boost)
+    score_parts.append("CASE WHEN UPPER(cod_art) = UPPER(?) THEN 1000 ELSE 0 END")
+    score_params.append(clean_query)
+    
+    # 2. SKU starts with query
+    score_parts.append("CASE WHEN UPPER(cod_art) LIKE UPPER(?) THEN 500 ELSE 0 END")
+    score_params.append(f"{clean_query}%")
+    
+    # 3. SKU contains query
+    score_parts.append("CASE WHEN UPPER(cod_art) LIKE UPPER(?) THEN 300 ELSE 0 END")
+    score_params.append(f"%{clean_query}%")
+    
+    # 4. Description exact phrase match
+    score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 400 ELSE 0 END")
+    score_params.append(f"%{clean_query}%")
+    
+    # 5. Description starts with query
+    score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 200 ELSE 0 END")
+    score_params.append(f"{clean_query}%")
+    
+    # Strict matching: every word or piece of word must match ONLY in descrizione_articolo OR cod_art
+    term_conditions = []
+    term_params = []
+    
+    for w in words:
+        variants = normalize_italian_term(w)
+        if not variants:
+            variants = [f"%{w}%"]
+            
+        subconds = []
+        for v in variants:
+            subconds.append("(cod_art LIKE ? OR descrizione_articolo LIKE ?)")
+            term_params.extend([v, v])
+            
+        sub_str = " OR ".join(subconds)
+        term_conditions.append(f"({sub_str})")
+        
+        # Boost for each token found in descrizione_articolo
+        score_parts.append("CASE WHEN UPPER(descrizione_articolo) LIKE UPPER(?) THEN 100 ELSE 0 END")
+        score_params.append(f"%{w}%")
+        
+    score_sql = " + ".join(score_parts) if score_parts else "0"
+    all_conditions = base_conditions + term_conditions
+    where_clause = " WHERE " + " AND ".join(all_conditions) if all_conditions else ""
+    all_params = score_params + base_params + term_params
+    
+    sql = f"""
+    SELECT *, ({score_sql}) AS relevance_score
+    FROM products
+    {where_clause}
+    ORDER BY relevance_score DESC, descrizione_articolo ASC{limit_clause}
+    """
+    
+    cursor.execute(sql, all_params)
+    results = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return results
 

@@ -683,7 +683,7 @@ with tab_catalog:
     # Risoluzione parametri da chip rapido vs filtri avanzati
     effective_category = selected_category
     effective_env = selected_env
-    effective_query = search_query
+    effective_dietary = None
     filter_pdf_only = False
 
     if active_chip == "🍕 Farine & Lieviti":
@@ -699,17 +699,19 @@ with tab_catalog:
     elif active_chip == "❄️ Tutto Gelo":
         effective_env = "Congelato"
     elif active_chip == "🌾 Senza Glutine":
-        effective_query = (search_query + " senza glutine").strip()
+        effective_dietary = "senza_glutine"
     elif active_chip == "🥛 Senza Lattosio":
-        effective_query = (search_query + " senza lattosio").strip()
+        effective_dietary = "senza_lattosio"
     elif active_chip == "📄 Solo con PDF":
         filter_pdf_only = True
 
     # Fetch all matching products without artificial limits
+    # Ricerca strettamente limitata a Codice SKU o Nome Articolo
     products = database.search_products(
-        query=effective_query,
+        query=search_query,
         category=effective_category,
         storage_env=effective_env,
+        dietary=effective_dietary,
         limit=None
     )
 
