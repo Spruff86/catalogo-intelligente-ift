@@ -624,9 +624,15 @@ with tab_catalog:
     # Barra di ricerca rapida con pulsante Cancella (Touch-Friendly)
     if "catalog_search_kw" not in st.session_state:
         st.session_state["catalog_search_kw"] = ""
+    if "catalog_selected_sku" not in st.session_state:
+        st.session_state["catalog_selected_sku"] = None
+    if "catalog_visible_cards" not in st.session_state:
+        st.session_state["catalog_visible_cards"] = 12
 
     def clear_catalog_search():
         st.session_state["catalog_search_kw"] = ""
+        st.session_state["catalog_quick_chip"] = "Tutti"
+        st.session_state["catalog_visible_cards"] = 12
 
     col_srch, col_clr = st.columns([5, 1])
     with col_srch:
@@ -640,8 +646,34 @@ with tab_catalog:
         st.write("")
         st.button("✖ Cancella", on_click=clear_catalog_search, use_container_width=True, help="Cancella la ricerca e visualizza tutti i prodotti")
 
-    # Filtri veloci categoria e conservazione
-    with st.expander("🏷️ Filtri per Categoria e Conservazione", expanded=False):
+    # -------------------------------------------------------------
+    # 1. CHIP DI FILTRO RAPIDO A 1 TOCCO (PILLS)
+    # -------------------------------------------------------------
+    CHIP_OPTIONS = [
+        "Tutti",
+        "🍕 Farine & Lieviti",
+        "🧀 Mozzarella",
+        "🥩 Carne Fresca",
+        "🥓 Salumi",
+        "🐟 Pesce Gelo",
+        "❄️ Tutto Gelo",
+        "🌾 Senza Glutine",
+        "🥛 Senza Lattosio",
+        "📄 Solo con PDF"
+    ]
+    
+    active_chip = st.pills(
+        "Filtri Rapidi",
+        options=CHIP_OPTIONS,
+        default="Tutti",
+        key="catalog_quick_chip",
+        label_visibility="collapsed"
+    )
+
+    # -------------------------------------------------------------
+    # 2. FILTRI AVANZATI CATEGORIA & CONSERVAZIONE (EXPANDER)
+    # -------------------------------------------------------------
+    with st.expander("🏷️ Altre Categorie e Conservazione (38 Categorie)", expanded=False):
         f_col1, f_col2 = st.columns(2)
         with f_col1:
             categories = ["Tutte"] + database.get_categories()
@@ -650,34 +682,146 @@ with tab_catalog:
             storage_envs = ["Tutti"] + database.get_storage_envs()
             selected_env = st.selectbox("Ambiente di Conservazione", storage_envs, index=0)
 
+    # Risoluzione parametri da chip rapido vs filtri avanzati
+    effective_category = selected_category
+    effective_env = selected_env
+    effective_query = search_query
+    filter_pdf_only = False
+
+    if active_chip == "🍕 Farine & Lieviti":
+        effective_category = "Farine e lieviti"
+    elif active_chip == "🧀 Mozzarella":
+        effective_category = "Mozzarella"
+    elif active_chip == "🥩 Carne Fresca":
+        effective_category = "Carne fresca"
+    elif active_chip == "🥓 Salumi":
+        effective_category = "Salumi e insaccati"
+    elif active_chip == "🐟 Pesce Gelo":
+        effective_category = "Pesce congelato"
+    elif active_chip == "❄️ Tutto Gelo":
+        effective_env = "Congelato"
+    elif active_chip == "🌾 Senza Glutine":
+        effective_query = (search_query + " senza glutine").strip()
+    elif active_chip == "🥛 Senza Lattosio":
+        effective_query = (search_query + " senza lattosio").strip()
+    elif active_chip == "📄 Solo con PDF":
+        filter_pdf_only = True
+
     # Fetch all matching products without artificial limits
     products = database.search_products(
-        query=search_query,
-        category=selected_category,
-        storage_env=selected_env,
+        query=effective_query,
+        category=effective_category,
+        storage_env=effective_env,
         limit=None
     )
+
+    if filter_pdf_only:
+        products = [p for p in products if p.get('scheda_path') or p.get('gdrive_scheda_id')]
+
     if not products:
-        st.warning(f"Nessun articolo trovato per '{search_query}'. Prova a verificare l'ortografia o a selezionare 'Tutte' nei filtri di categoria.")
+        st.warning(f"Nessun articolo trovato con i filtri correnti. Prova a verificare l'ortografia o a selezionare 'Tutti' nei filtri rapidi.")
     else:
-        st.markdown(f"🎯 Trovati **{len(products)}** articoli disponibili:")
-        
-        # Product selector
+        skus_in_results = [p['cod_art'] for p in products]
+        if st.session_state.catalog_selected_sku not in skus_in_results:
+            st.session_state.catalog_selected_sku = skus_in_results[0]
+            
+        selected_sku = st.session_state.catalog_selected_sku
+
+        # Product options mapping for selectbox
         product_options = {
             f"{p['cod_art']} — {p['descrizione_articolo']} [{p.get('gruppo_art', '')}]": p['cod_art']
             for p in products
         }
-        
-        selected_label = st.selectbox(
-            "👇 Tocca qui per scegliere tra gli articoli trovati:",
-            options=list(product_options.keys()),
-            index=0
-        )
-        
-        selected_sku = product_options[selected_label]
+        labels_list = list(product_options.keys())
+        current_label_idx = skus_in_results.index(selected_sku) if selected_sku in skus_in_results else 0
+
+        st.markdown(f"🎯 Trovati **{len(products)}** articoli disponibili:")
+
+        # -------------------------------------------------------------
+        # 3. MINI-CARD VISIVE DEI RISULTATI (SE > 1 RISULTATO)
+        # -------------------------------------------------------------
+        if len(products) > 1:
+            max_visible = st.session_state.catalog_visible_cards
+            visible_products = products[:max_visible]
+            
+            # Mostra mini-card in griglia a 3 colonne (touch-friendly su tablet/mobile)
+            n_cols = 3
+            for row_i in range(0, len(visible_products), n_cols):
+                cols = st.columns(n_cols)
+                for col_i, p in enumerate(visible_products[row_i:row_i + n_cols]):
+                    with cols[col_i]:
+                        is_active = (p['cod_art'] == selected_sku)
+                        
+                        # Thumbnail image
+                        foto_thumb = resolve_file(p.get('foto_path'), p.get('foto_filename'), config.FOTO_DIR, sku=p['cod_art'], gdrive_id=p.get('gdrive_foto_id'))
+                        
+                        with st.container(border=True):
+                            if foto_thumb and (foto_thumb.startswith("http") or os.path.exists(foto_thumb)):
+                                st.image(foto_thumb, use_container_width=True)
+                            else:
+                                st.markdown("""<div style="background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px; height:105px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; color:#94A3B8;">📷</div>""", unsafe_allow_html=True)
+                            
+                            st.markdown(f"""
+                            <div style="margin-top:4px; margin-bottom:2px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                                <span style="background:#DBEAFE; color:#1E40AF; font-size:0.72rem; font-weight:700; padding:1px 5px; border-radius:4px;">{p['cod_art']}</span>
+                                <span style="font-size:0.70rem; color:#64748B; font-weight:600;">{p.get('gruppo_art', '')}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            desc_short = p['descrizione_articolo']
+                            st.markdown(f"""<div style="font-weight:700; font-size:0.83rem; color:#0F172A; min-height:38px; line-height:1.2; margin-bottom:4px;">{desc_short}</div>""", unsafe_allow_html=True)
+                            
+                            p_val = p.get('prezzo_indicativo', '0')
+                            st.markdown(f"""
+                            <div style="font-size:1.05rem; font-weight:800; color:#16A34A; margin-bottom:6px;">
+                                € {p_val} <span style="font-size:0.72rem; font-weight:600; color:#475569;">/ {p.get('um', 'Kg')}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            btn_label = "✅ Selezionato" if is_active else "👁️ Dettaglio"
+                            btn_type = "primary" if is_active else "secondary"
+                            if st.button(btn_label, key=f"btn_card_{p['cod_art']}", type=btn_type, use_container_width=True):
+                                st.session_state.catalog_selected_sku = p['cod_art']
+                                st.rerun()
+
+            if len(products) > max_visible:
+                col_more, col_sel = st.columns([1, 2])
+                with col_more:
+                    if st.button(f"➕ Mostra altri 12 (su {len(products)})", use_container_width=True):
+                        st.session_state.catalog_visible_cards += 12
+                        st.rerun()
+                with col_sel:
+                    selected_label = st.selectbox(
+                        "Oppure cerca direttamente dall'elenco completo:",
+                        options=labels_list,
+                        index=current_label_idx,
+                        key="catalog_sku_selector_more"
+                    )
+                    if product_options[selected_label] != selected_sku:
+                        st.session_state.catalog_selected_sku = product_options[selected_label]
+                        st.rerun()
+            else:
+                with st.expander("🔍 Seleziona dall'elenco a tendina testuale", expanded=False):
+                    selected_label = st.selectbox(
+                        "Elenco completo:",
+                        options=labels_list,
+                        index=current_label_idx,
+                        key="catalog_sku_selector_all"
+                    )
+                    if product_options[selected_label] != selected_sku:
+                        st.session_state.catalog_selected_sku = product_options[selected_label]
+                        st.rerun()
+
+        # -------------------------------------------------------------
+        # 4. SCHEDA PRODOTTO COMPLETA DEL PRODOTTO SELEZIONATO
+        # -------------------------------------------------------------
         current_prod = database.get_product_by_code(selected_sku)
         
         if current_prod:
+            if len(products) > 1:
+                st.write("")
+                st.markdown(f"#### 📋 Scheda Completa Articolo Selezionato: **{current_prod['descrizione_articolo']}**")
+            
             # Card Container
             with st.container(border=True):
                 col_img, col_info = st.columns([1, 2], gap="large")
