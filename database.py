@@ -69,7 +69,7 @@ def init_db():
 def get_categories() -> List[str]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT gruppo_art FROM products WHERE gruppo_art IS NOT NULL AND gruppo_art != '' ORDER BY gruppo_art")
+    cursor.execute("SELECT DISTINCT gruppo_art FROM products WHERE gruppo_art IS NOT NULL AND gruppo_art != '' ORDER BY gruppo_art COLLATE NOCASE")
     cats = [row[0] for row in cursor.fetchall()]
     conn.close()
     return cats

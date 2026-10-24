@@ -59,56 +59,12 @@ def get_gdrive_id(file_path: str) -> str:
     except Exception:
         return ""
 
-def infer_category(sku: str, desc: str, env: str) -> str:
-    """Classifies Ho.Re.Ca product into categories based on product description and attributes."""
-    d = (desc or "").upper()
-    env_clean = (env or "").capitalize()
-    
-    # 1. Non-food / Packaging
-    if any(k in d for k in ['MAGLIETT', 'GREMBIUL', 'CONT.', 'COPERCHIO', 'CUBO PIZZA', 'SCATOL', 'CARTON', 'VASCHETT', 'BICCHIER', 'PIATT', 'ROTOL', 'CARTA', 'DETERG']):
-        return 'Packaging & Servizio'
-    
-    # 2. Pesce e Ittico
-    if any(k in d for k in ['SALMON', 'ORAT', 'BRANZIN', 'GAMBER', 'POLP', 'CALAMAR', 'SEPPI', 'ALICI', 'ACCIUGH', 'TONN', 'MERLUZZ', 'BACCAL', 'COZZ', 'VONGOL', 'PESCE', 'MARE', 'SCAMP', 'ITTIC']):
-        return 'Pesce & Prodotti Ittici'
-        
-    # 3. Formaggi & Latticini
-    if any(k in d for k in ['MOZZARELL', 'BURRAT', 'STRACCIATELL', 'GRANA', 'PARMIGIAN', 'PECORIN', 'GORGONZOL', 'RICOTT', 'LATTE', 'PANNA', 'BURRO', 'MASCARPON', 'PROVOL', 'SCAMORZ', 'EDAM', 'CHEDDAR', 'FORMAGG', 'CACIOCAVALL', 'FONTIN', 'TALEGGI', 'BRIE', 'CAMEMBERT', 'FETA', 'YOGURT']):
-        return 'Formaggi & Latticini'
-        
-    # 4. Salumi & Gastronomia
-    if any(k in d for k in ['PROSCIUTT', 'COTTO', 'CRUDO', 'SALAM', 'MORTADELL', 'SPECK', 'PANCETT', 'GUANCIALE', 'BRESAOL', 'PORCHETT', 'LONZ', 'SOPRESS', 'LARDO', 'WURSTEL', 'CULATELL', 'CARNE SALADA', 'SALUMI']):
-        return 'Salumi & Salumeria'
-        
-    # 5. Carni Fresche e Surgelate
-    if any(k in d for k in ['BOVIN', 'SCOTTON', 'ANGUS', 'VITELL', 'BEEF', 'ENTRECOTE', 'COSTATA', 'FIORENTIN', 'PICANHA', 'TOMAHAWK', 'HAMBURGER', 'FILETTO BOV', 'MACINATO', 'SUIN', 'MAIAL', 'POLL', 'POLLO', 'GALLETT', 'TACCHIN', 'BISONTE', 'WAGYU', 'AGNELL', 'ANATR', 'CONIGLI', 'CARNE']):
-        return 'Carni Fresche & Gelo'
-        
-    # 6. Farine, Lievitati & Pane
-    if any(k in d for k in ['FARIN', 'PANE', 'FOCACCI', 'PIZZA', 'PINSA', 'LIEVIT', 'SEMOLA', 'CIABATT', 'BAGUETT', 'BUN', 'BASE PIZZA', 'CROISSANT', 'BRIOCHE']):
-        return 'Farine, Pizze & Bakery'
-        
-    # 7. Vegetali, Verdure & Conserve
-    if any(k in d for k in ['PATAT', 'OROGEL', 'FAGIOL', 'BIET', 'SPINAC', 'POMODOR', 'PELAT', 'FRIARIELL', 'CARCIOF', 'OLIV', 'FUNGH', 'TARTUF', 'VERDUR', 'VEGETAL', 'ZUCCHIN', 'MELANZAN', 'PISELL']):
-        return 'Vegetali, Conserve & Gelo'
-        
-    # 8. Oli, Aceti & Condimenti
-    if any(k in d for k in ['OLIO', 'EXTRAVERGINE', 'EVO', 'ACETO', 'SALS', 'MAIONESE', 'KETCHUP', 'CONDIMENT', 'SPEZI', 'PEPE', 'SALE', 'CREMA DI']):
-        return 'Oli, Aceti & Salse'
-        
-    # 9. Pasta & Riso
-    if any(k in d for k in ['PASTA', 'SPAGHETT', 'PENNE', 'RIGATON', 'TAGLIATEL', 'GNOCCH', 'TORTELL', 'RAVIOL', 'RISO', 'RISOTT']):
-        return 'Pasta & Riso'
-        
-    # 10. Dessert, Frutta & Dolci
-    if any(k in d for k in ['DOLC', 'TORT', 'DESSERT', 'GELAT', 'CIOCCOLAT', 'CREM', 'FRUTT']):
-        return 'Dessert & Pasticceria'
-        
-    if env_clean == 'Congelato':
-        return 'Specialità Congelate'
-    elif env_clean == 'Refrigerato':
-        return 'Specialità Fresche'
-    return 'Drogheria & Specialità'
+def normalize_category(cat: str) -> str:
+    """Cleans official category string from Excel and capitalizes first character for consistent UI presentation."""
+    if not cat:
+        return "Altro"
+    c = str(cat).strip()
+    return (c[0].upper() + c[1:]) if c else "Altro"
 
 def load_historical_prices() -> dict:
     """Extracts known non-zero prices from previously indexed Excel files in the base directory."""
@@ -130,10 +86,11 @@ def load_historical_prices() -> dict:
             header = [str(x).strip() if x is not None else "" for x in rows[h_idx]]
             s_idx = header.index('Soglia') if 'Soglia' in header else -1
             c_idx = header.index('Contratto') if 'Contratto' in header else -1
+            sku_idx = header.index('Cod_art') if 'Cod_art' in header else (header.index('Item_Code') if 'Item_Code' in header else 2)
             if s_idx == -1 and c_idx == -1:
                 continue
             for r in rows[h_idx + 1:]:
-                sku = str(r[2] or '').strip().upper()
+                sku = str(r[sku_idx] if sku_idx < len(r) else '').strip().upper()
                 if not sku:
                     continue
                 s_val = r[s_idx] if s_idx != -1 and s_idx < len(r) else 0
@@ -236,15 +193,12 @@ def run_indexing():
         cod_art_clean = cod_art.strip().upper()
         
         descrizione_articolo = get_val(row, "Descrizione_articolo") or get_val(row, "Item_description")
-        gruppo_art = get_val(row, "Gruppo_art") or get_val(row, "Item_Group")
+        gruppo_art_raw = get_val(row, "Gruppo_art") or get_val(row, "Item_Group")
+        gruppo_art = normalize_category(gruppo_art_raw)
         um = get_val(row, "Um") or get_val(row, "M.U.")
         tipo_peso = get_val(row, "Tipo_peso") or get_val(row, "Weight_note")
         unita_imballi = get_val(row, "Unità_e_imballi") or get_val(row, "Units_and_Packaging")
         ambiente_cons = get_val(row, "Ambiente_cons") or get_val(row, "Storage_Env")
-        
-        # If Gruppo_art is empty from SAP Excel, automatically infer Ho.Re.Ca category
-        if not gruppo_art or not gruppo_art.strip():
-            gruppo_art = infer_category(cod_art_clean, descrizione_articolo, ambiente_cons)
         shelf_life_it = get_val(row, "Shelf_life_IT") or get_val(row, "Shelf_life_LNG")
         tempo_cons_gg = get_val(row, "TempoCons_gg") or get_val(row, "DeliveryTime_days")
         minimo_ordine = get_val(row, "Minimo_ordine") or get_val(row, "Minimum_order")

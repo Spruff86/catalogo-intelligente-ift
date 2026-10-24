@@ -9,7 +9,12 @@ BASE_DIR = Path(__file__).parent.resolve()
 
 # Excel Catalog Path
 # Auto-detect latest Excel file matching "Dati per catalogo*.xlsx", or fallback to standard name
-_excel_candidates = sorted(list(BASE_DIR.glob("Dati per catalogo*.xlsx")), key=lambda p: p.stat().st_mtime, reverse=True)
+GDRIVE_SAP_DIR = Path("/Users/federicoprovolo/Library/CloudStorage/GoogleDrive-provolo.federico@gmail.com/Il mio Drive/Dati ordini SAP")
+GDRIVE_CATALOGO_DIR = GDRIVE_SAP_DIR / "Dati per catalogo intelligente"
+_candidates = list(BASE_DIR.glob("Dati per catalogo*.xlsx"))
+if GDRIVE_CATALOGO_DIR.exists():
+    _candidates.extend(list(GDRIVE_CATALOGO_DIR.glob("Dati per catalogo*.xlsx")))
+_excel_candidates = sorted(_candidates, key=lambda p: p.stat().st_mtime, reverse=True)
 DATA_EXCEL_PATH = _excel_candidates[0] if _excel_candidates else (BASE_DIR / "Dati per catalogo intelligente aggiornati al 2026-08-29.xlsx")
 
 
