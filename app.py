@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, date
 
 import config
 import database
+import importlib
+importlib.reload(database)
 import ai_assistant
 import quote_generator
 import food_cost_calculator
@@ -711,11 +713,24 @@ with tab_catalog:
         query=search_query,
         category=effective_category,
         storage_env=effective_env,
-        dietary=effective_dietary,
         limit=None
     )
 
-    if filter_pdf_only:
+    if active_chip == "🌾 Senza Glutine":
+        products = [
+            p for p in products 
+            if "senza glutine" in (p.get('scheda_text') or '').lower() 
+            or "gluten free" in (p.get('scheda_text') or '').lower() 
+            or "glut" in p.get('descrizione_articolo', '').lower()
+        ]
+    elif active_chip == "🥛 Senza Lattosio":
+        products = [
+            p for p in products 
+            if "senza lattosio" in (p.get('scheda_text') or '').lower() 
+            or "lactose free" in (p.get('scheda_text') or '').lower() 
+            or "latt" in p.get('descrizione_articolo', '').lower()
+        ]
+    elif filter_pdf_only:
         products = [p for p in products if p.get('scheda_path') or p.get('gdrive_scheda_id')]
 
     if not products:

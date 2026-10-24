@@ -161,8 +161,9 @@ def search_products(
     query: str = "", 
     category: str = "", 
     storage_env: str = "", 
-    dietary: Optional[str] = None, 
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
+    *args,
+    **kwargs
 ) -> List[Dict[str, Any]]:
     """
     Searches products strictly by cod_art or descrizione_articolo (product name).
@@ -171,6 +172,8 @@ def search_products(
     """
     conn = get_connection()
     cursor = conn.cursor()
+    
+    dietary = kwargs.get("dietary")
     
     base_conditions = []
     base_params = []
