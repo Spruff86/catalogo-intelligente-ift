@@ -734,6 +734,23 @@ with tab_catalog:
         }
         labels_list = list(product_options.keys())
         current_label_idx = skus_in_results.index(selected_sku) if selected_sku in skus_in_results else 0
+        current_label = labels_list[current_label_idx] if current_label_idx < len(labels_list) else labels_list[0]
+
+        # Ensure selector key exists and is synchronized
+        if "catalog_sku_selector_dropdown" not in st.session_state or st.session_state["catalog_sku_selector_dropdown"] not in labels_list:
+            st.session_state["catalog_sku_selector_dropdown"] = current_label
+
+        def select_catalog_item(sku_code):
+            st.session_state.catalog_selected_sku = sku_code
+            for lbl, s in product_options.items():
+                if s == sku_code:
+                    st.session_state["catalog_sku_selector_dropdown"] = lbl
+                    break
+
+        def on_dropdown_select():
+            chosen = st.session_state.get("catalog_sku_selector_dropdown")
+            if chosen and chosen in product_options:
+                st.session_state.catalog_selected_sku = product_options[chosen]
 
         st.markdown(f"🎯 Trovati **{len(products)}** articoli disponibili:")
 
@@ -778,11 +795,16 @@ with tab_catalog:
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            btn_label = "✅ Selezionato" if is_active else "👁️ Dettaglio"
+                            btn_label = "✅ Visualizzato" if is_active else "👁️ Dettaglio"
                             btn_type = "primary" if is_active else "secondary"
-                            if st.button(btn_label, key=f"btn_card_{p['cod_art']}", type=btn_type, use_container_width=True):
-                                st.session_state.catalog_selected_sku = p['cod_art']
-                                st.rerun()
+                            st.button(
+                                btn_label,
+                                key=f"btn_card_{p['cod_art']}",
+                                type=btn_type,
+                                use_container_width=True,
+                                on_click=select_catalog_item,
+                                args=(p['cod_art'],)
+                            )
 
             if len(products) > max_visible:
                 col_more, col_sel = st.columns([1, 2])
@@ -791,26 +813,20 @@ with tab_catalog:
                         st.session_state.catalog_visible_cards += 12
                         st.rerun()
                 with col_sel:
-                    selected_label = st.selectbox(
-                        "Oppure cerca direttamente dall'elenco completo:",
+                    st.selectbox(
+                        "Oppure seleziona direttamente da tutte le referenze:",
                         options=labels_list,
-                        index=current_label_idx,
-                        key="catalog_sku_selector_more"
+                        key="catalog_sku_selector_dropdown",
+                        on_change=on_dropdown_select
                     )
-                    if product_options[selected_label] != selected_sku:
-                        st.session_state.catalog_selected_sku = product_options[selected_label]
-                        st.rerun()
             else:
                 with st.expander("🔍 Seleziona dall'elenco a tendina testuale", expanded=False):
-                    selected_label = st.selectbox(
-                        "Elenco completo:",
+                    st.selectbox(
+                        "Elenco completo articoli:",
                         options=labels_list,
-                        index=current_label_idx,
-                        key="catalog_sku_selector_all"
+                        key="catalog_sku_selector_dropdown",
+                        on_change=on_dropdown_select
                     )
-                    if product_options[selected_label] != selected_sku:
-                        st.session_state.catalog_selected_sku = product_options[selected_label]
-                        st.rerun()
 
         # -------------------------------------------------------------
         # 4. SCHEDA PRODOTTO COMPLETA DEL PRODOTTO SELEZIONATO
@@ -820,7 +836,14 @@ with tab_catalog:
         if current_prod:
             if len(products) > 1:
                 st.write("")
-                st.markdown(f"#### 📋 Scheda Completa Articolo Selezionato: **{current_prod['descrizione_articolo']}**")
+                st.markdown(f"""
+                <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-left:5px solid #2563EB; border-radius:10px; padding:12px 18px; margin-top:14px; margin-bottom:14px;">
+                    <div style="font-size:0.75rem; font-weight:700; color:#1E40AF; text-transform:uppercase; letter-spacing:0.04em;">Articolo Attualmente Visualizzato in Basso</div>
+                    <div style="font-size:1.15rem; font-weight:800; color:#0F172A; margin-top:2px;">
+                        {current_prod['descrizione_articolo']} <span style="font-size:0.95rem; font-weight:600; color:#2563EB;">({current_prod['cod_art']})</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             # Card Container
             with st.container(border=True):
