@@ -626,12 +626,15 @@ with tab_catalog:
         st.session_state["catalog_search_kw"] = ""
     if "catalog_selected_sku" not in st.session_state:
         st.session_state["catalog_selected_sku"] = None
+    if "catalog_expanded_sku" not in st.session_state:
+        st.session_state["catalog_expanded_sku"] = None
     if "catalog_visible_cards" not in st.session_state:
         st.session_state["catalog_visible_cards"] = 12
 
     def clear_catalog_search():
         st.session_state["catalog_search_kw"] = ""
         st.session_state["catalog_quick_chip"] = "Tutti"
+        st.session_state["catalog_expanded_sku"] = None
         st.session_state["catalog_visible_cards"] = 12
 
     col_srch, col_clr = st.columns([5, 1])
@@ -733,14 +736,204 @@ with tab_catalog:
     elif filter_pdf_only:
         products = [p for p in products if p.get('scheda_path') or p.get('gdrive_scheda_id')]
 
+    def render_product_submenu(p, sku_to_opt):
+        sku = p['cod_art']
+        st.markdown("""
+        <div style="background:#E2E8F0; height:1px; margin: 10px 0 10px 0;"></div>
+        <div style="font-size:0.75rem; font-weight:800; color:#1E40AF; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px;">
+            ⚡ Sottomenù Azioni Rapide
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 1. Action buttons grid (2 columns)
+        b_col1, b_col2 = st.columns(2)
+        with b_col1:
+            if st.button("📲 Offerta WA", key=f"btn_wa_{sku}", use_container_width=True, help="Prepara un'offerta WhatsApp per questo articolo"):
+                st.session_state.flash_offer_sku = sku
+                try:
+                    raw_p = str(p.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                    st.session_state.flash_offer_price = float(raw_p) if raw_p else 0.0
+                except (ValueError, TypeError):
+                    st.session_state.flash_offer_price = 0.0
+                st.session_state.flash_offer_ai_pitch = ""
+                if "wa_flash_editor" in st.session_state:
+                    del st.session_state["wa_flash_editor"]
+                if "flash_prod_selector" in st.session_state:
+                    del st.session_state["flash_prod_selector"]
+                st.toast(f"✅ {sku} trasferito nell'Offerta WhatsApp! Apri la scheda '📲 Offerta WA'.")
+
+            if st.button("📊 Food Cost", key=f"btn_fc_{sku}", use_container_width=True, help="Aggiunge questo articolo alla ricetta del Food Cost con prezzo di listino"):
+                raw_p = str(p.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip()
+                try:
+                    u_price = float(raw_p) if raw_p else 0.0
+                except (ValueError, TypeError):
+                    u_price = 0.0
+                prod_um = p.get("um", "Kg") or "Kg"
+                if str(prod_um).strip().lower() in ["kg", "chilogrammo", "chilo"]:
+                    def_q, def_u = 100.0, "g"
+                elif str(prod_um).strip().lower() in ["l", "lt", "litro"]:
+                    def_q, def_u = 100.0, "ml"
+                else:
+                    def_q, def_u = 1.0, prod_um if prod_um in ["Pz", "etto", "fetta"] else "Pz"
+
+                st.session_state.recipe_ingredients.append({
+                    "cod_art": sku,
+                    "name": p.get("descrizione_articolo", ""),
+                    "quantity": def_q,
+                    "unit": def_u,
+                    "unit_price": u_price,
+                    "price_um": prod_um
+                })
+                st.toast(f"✅ {sku} aggiunto al Food Cost! Apri la scheda '📊 Food Cost'.")
+                st.rerun()
+
+        with b_col2:
+            if st.button("📄 Volantino", key=f"btn_flyer_{sku}", use_container_width=True, help="Aggiungi questo articolo a uno slot del Volantino promozionale"):
+                empty_idx = -1
+                for idx_s, slt in enumerate(st.session_state.flyer_slots):
+                    if not slt.get("cod_art"):
+                        empty_idx = idx_s
+                        break
+                if empty_idx == -1:
+                    st.warning("⚠️ Tutti i 6 slot del Volantino sono già occupati! Vai alla scheda '📄 Volantino'.")
+                else:
+                    raw_p = str(p.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+                    try:
+                        p_val = float(raw_p) if raw_p else 0.0
+                    except (ValueError, TypeError):
+                        p_val = 0.0
+                    raw_desc = p.get('descrizione_commerciale', '') or ''
+                    clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
+                    if len(clean_d) > 105:
+                        clean_d = clean_d[:102].strip() + "..."
+                    foto_res = resolve_file(p.get('foto_path'), p.get('foto_filename'), config.FOTO_DIR, sku=sku, gdrive_id=p.get('gdrive_foto_id'))
+                    st.session_state.flyer_slots[empty_idx] = {
+                        "cod_art": sku,
+                        "descrizione_articolo": p.get('descrizione_articolo', ''),
+                        "um": p.get('um', 'Kg') or 'Kg',
+                        "prezzo": p_val,
+                        "descrizione_commerciale": clean_d,
+                        "foto_path": foto_res or ""
+                    }
+                    opt_str = sku_to_opt.get(sku, f"{sku} — {p.get('descrizione_articolo', '')}")
+                    st.session_state[f"flyer_sel_{empty_idx}"] = opt_str
+                    st.session_state[f"flyer_price_{empty_idx}"] = p_val
+                    st.session_state[f"flyer_desc_{empty_idx}"] = clean_d
+                    st.toast(f"✅ {sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino'.")
+                    st.rerun()
+
+            if st.session_state.chat_focused_sku == sku:
+                if st.button("❌ Rimuovi AI", key=f"btn_unfocus_{sku}", use_container_width=True):
+                    st.session_state.chat_focused_sku = None
+                    st.toast("Focus rimosso! Passato al catalogo generale.")
+                    st.rerun()
+            else:
+                if st.button("🎯 Chiedi all'AI", key=f"btn_focus_{sku}", type="primary", use_container_width=True):
+                    st.session_state.chat_focused_sku = sku
+                    st.toast(f"✅ Articolo {sku} agganciato alla Chat AI! Vai alla scheda '💬 Chat AI'.")
+                    st.rerun()
+
+        # Scheda Tecnica PDF button
+        scheda_resolved = resolve_file(p.get('scheda_path'), p.get('scheda_filename'), config.SCHEDE_DIR, gdrive_id=p.get('gdrive_scheda_id'))
+        if scheda_resolved and os.path.exists(scheda_resolved):
+            with open(scheda_resolved, "rb") as f:
+                st.download_button(
+                    label="📥 Scarica Scheda PDF",
+                    data=f.read(),
+                    file_name=os.path.basename(scheda_resolved),
+                    mime="application/pdf",
+                    key=f"dl_pdf_{sku}",
+                    use_container_width=True
+                )
+        elif p.get('gdrive_scheda_id'):
+            st.link_button(
+                "📄 Apri Scheda PDF",
+                f"https://drive.google.com/file/d/{p['gdrive_scheda_id']}/view",
+                key=f"link_pdf_{sku}",
+                use_container_width=True
+            )
+        else:
+            st.button("📄 Nessun PDF allegato", disabled=True, key=f"no_pdf_{sku}", use_container_width=True)
+
+        # 2. Preventivo Box
+        st.markdown("""
+        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:6px; padding:6px 8px; margin-top:8px; margin-bottom:6px;">
+            <span style="font-size:0.75rem; font-weight:700; color:#0F172A;">🛒 AGGIUNGI AL PREVENTIVO:</span>
+        </div>
+        """, unsafe_allow_html=True)
+        try:
+            raw_p = str(p.get('prezzo_indicativo', '0')).replace(',', '.').strip()
+            default_p = float(raw_p) if raw_p else 0.0
+        except ValueError:
+            default_p = 0.0
+
+        q_col1, q_col2 = st.columns([1, 1])
+        with q_col1:
+            add_qty = st.number_input(
+                f"Q.tà ({p.get('um', 'Kg')})",
+                min_value=0.1,
+                value=1.0,
+                step=1.0,
+                key=f"qty_sel_{sku}"
+            )
+        with q_col2:
+            add_price = st.number_input(
+                "Prezzo (€)",
+                min_value=0.0,
+                value=default_p,
+                step=0.10,
+                format="%.2f",
+                key=f"prc_sel_{sku}"
+            )
+
+        if st.button("➕ Aggiungi al Preventivo", type="primary", use_container_width=True, key=f"btn_add_quote_{sku}"):
+            existing = next((i for i in st.session_state.quote_items if i["cod_art"] == sku), None)
+            if existing:
+                existing["quantita"] += add_qty
+                existing["prezzo_unitario"] = add_price
+            else:
+                st.session_state.quote_items.append({
+                    "cod_art": sku,
+                    "descrizione_articolo": p.get("descrizione_articolo", ""),
+                    "unita_imballi": p.get("unita_imballi", ""),
+                    "um": p.get("um", "Kg"),
+                    "quantita": add_qty,
+                    "prezzo_unitario": add_price
+                })
+            st.toast(f"✅ Aggiunto {sku} al Preventivo! (Totale articoli: {len(st.session_state.quote_items)})")
+            st.rerun()
+
+        # 3. Info Tecniche & Scheda HACCP
+        with st.expander("📋 Info Tecniche & HACCP", expanded=False):
+            st.markdown(f"""
+            - **Ambiente:** `{p.get('ambiente_cons', 'N/D')}`
+            - **Shelf-Life:** `{p.get('shelf_life_it', 'N/D')}`
+            - **Imballo:** `{p.get('unita_imballi', 'N/D')}` ({p.get('tipo_peso', 'N/D')})
+            - **Min. Ordine:** `{p.get('minimo_ordine', 'N/D')}` | **Consegna:** `{p.get('tempo_cons_gg', 'N/D')} gg`
+            """)
+            if p.get('descrizione_commerciale'):
+                st.markdown(f"""
+                <div style="background:#FFFBEB; border-left:3px solid #F59E0B; padding:6px 8px; border-radius:4px; font-size:0.80rem; color:#451A03; margin-top:4px; margin-bottom:6px;">
+                    <b>Descrizione Commerciale:</b><br>{p['descrizione_commerciale']}
+                </div>
+                """, unsafe_allow_html=True)
+            scheda_text = p.get('scheda_text', '').strip()
+            if scheda_text:
+                st.caption("Testo Scheda Tecnica (HACCP/Ingredienti):")
+                st.text_area("Testo Scheda", value=scheda_text, height=120, disabled=True, label_visibility="collapsed", key=f"txt_scheda_{sku}")
+
     if not products:
         st.warning(f"Nessun articolo trovato con i filtri correnti. Prova a verificare l'ortografia o a selezionare 'Tutti' nei filtri rapidi.")
     else:
         skus_in_results = [p['cod_art'] for p in products]
-        if st.session_state.catalog_selected_sku not in skus_in_results:
-            st.session_state.catalog_selected_sku = skus_in_results[0]
-            
-        selected_sku = st.session_state.catalog_selected_sku
+
+        # Sync expanded SKU if needed
+        if len(products) == 1:
+            st.session_state.catalog_expanded_sku = products[0]['cod_art']
+        elif st.session_state.get("catalog_expanded_sku") not in skus_in_results:
+            st.session_state.catalog_expanded_sku = None
+
+        st.session_state.catalog_selected_sku = st.session_state.catalog_expanded_sku
 
         # Product options mapping for selectbox
         product_options = {
@@ -748,41 +941,61 @@ with tab_catalog:
             for p in products
         }
         labels_list = list(product_options.keys())
-        current_label_idx = skus_in_results.index(selected_sku) if selected_sku in skus_in_results else 0
-        current_label = labels_list[current_label_idx] if current_label_idx < len(labels_list) else labels_list[0]
 
-        # Ensure selector key exists and is synchronized
-        if "catalog_sku_selector_dropdown" not in st.session_state or st.session_state["catalog_sku_selector_dropdown"] not in labels_list:
-            st.session_state["catalog_sku_selector_dropdown"] = current_label
-
-        def select_catalog_item(sku_code):
-            st.session_state.catalog_selected_sku = sku_code
-            for lbl, s in product_options.items():
-                if s == sku_code:
-                    st.session_state["catalog_sku_selector_dropdown"] = lbl
-                    break
+        def toggle_catalog_item(sku_code):
+            if st.session_state.get("catalog_expanded_sku") == sku_code:
+                st.session_state.catalog_expanded_sku = None
+            else:
+                st.session_state.catalog_expanded_sku = sku_code
+            st.session_state.catalog_selected_sku = st.session_state.catalog_expanded_sku
 
         def on_dropdown_select():
             chosen = st.session_state.get("catalog_sku_selector_dropdown")
             if chosen and chosen in product_options:
-                st.session_state.catalog_selected_sku = product_options[chosen]
+                chosen_sku = product_options[chosen]
+                st.session_state.catalog_expanded_sku = chosen_sku
+                st.session_state.catalog_selected_sku = chosen_sku
+                if chosen_sku in skus_in_results:
+                    idx = skus_in_results.index(chosen_sku)
+                    if idx >= st.session_state.catalog_visible_cards:
+                        st.session_state.catalog_visible_cards = idx + 1
 
         st.markdown(f"🎯 Trovati **{len(products)}** articoli disponibili:")
 
-        # -------------------------------------------------------------
-        # 3. MINI-CARD VISIVE DEI RISULTATI (SE > 1 RISULTATO)
-        # -------------------------------------------------------------
-        if len(products) > 1:
+        # CASE 1: UNICO RISULTATO TROVATO
+        if len(products) == 1:
+            p = products[0]
+            with st.container(border=True):
+                col_img, col_info = st.columns([1, 2], gap="medium")
+                with col_img:
+                    foto_resolved = resolve_file(p.get('foto_path'), p.get('foto_filename'), config.FOTO_DIR, sku=p['cod_art'], gdrive_id=p.get('gdrive_foto_id'))
+                    if foto_resolved and (foto_resolved.startswith("http") or os.path.exists(foto_resolved)):
+                        st.image(foto_resolved, use_container_width=True)
+                    else:
+                        st.markdown("""<div style="background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px; height:180px; display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:#94A3B8;">📷</div>""", unsafe_allow_html=True)
+                with col_info:
+                    st.markdown(f'<div class="product-title-text">{p["descrizione_articolo"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<span class="sku-badge">SKU: {p["cod_art"]}</span>', unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style="font-size:1.35rem; font-weight:800; color:#16A34A; margin-bottom:8px;">
+                        € {p.get('prezzo_indicativo', '0')} <span style="font-size:0.85rem; font-weight:600; color:#475569;">/ {p.get('um', 'Kg')}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Sottomenù immediato sotto la scheda
+                render_product_submenu(p, sku_to_opt)
+
+        # CASE 2: PIÙ RISULTATI IN GRIGLIA
+        else:
             max_visible = st.session_state.catalog_visible_cards
             visible_products = products[:max_visible]
             
-            # Mostra mini-card in griglia a 3 colonne (touch-friendly su tablet/mobile)
             n_cols = 3
             for row_i in range(0, len(visible_products), n_cols):
                 cols = st.columns(n_cols)
                 for col_i, p in enumerate(visible_products[row_i:row_i + n_cols]):
                     with cols[col_i]:
-                        is_active = (p['cod_art'] == selected_sku)
+                        is_expanded = (p['cod_art'] == st.session_state.get("catalog_expanded_sku"))
                         
                         # Thumbnail image
                         foto_thumb = resolve_file(p.get('foto_path'), p.get('foto_filename'), config.FOTO_DIR, sku=p['cod_art'], gdrive_id=p.get('gdrive_foto_id'))
@@ -810,16 +1023,20 @@ with tab_catalog:
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            btn_label = "✅ Visualizzato" if is_active else "👁️ Dettaglio"
-                            btn_type = "primary" if is_active else "secondary"
+                            btn_label = "🔼 Chiudi Dettagli" if is_expanded else "👁️ Dettaglio"
+                            btn_type = "primary" if is_expanded else "secondary"
                             st.button(
                                 btn_label,
                                 key=f"btn_card_{p['cod_art']}",
                                 type=btn_type,
                                 use_container_width=True,
-                                on_click=select_catalog_item,
+                                on_click=toggle_catalog_item,
                                 args=(p['cod_art'],)
                             )
+
+                            # Sottomenù direttamente sotto alla card quando aperta!
+                            if is_expanded:
+                                render_product_submenu(p, sku_to_opt)
 
             if len(products) > max_visible:
                 col_more, col_sel = st.columns([1, 2])
@@ -842,254 +1059,6 @@ with tab_catalog:
                         key="catalog_sku_selector_dropdown",
                         on_change=on_dropdown_select
                     )
-
-        # -------------------------------------------------------------
-        # 4. SCHEDA PRODOTTO COMPLETA DEL PRODOTTO SELEZIONATO
-        # -------------------------------------------------------------
-        current_prod = database.get_product_by_code(selected_sku)
-        
-        if current_prod:
-            if len(products) > 1:
-                st.write("")
-                st.markdown(f"""
-                <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-left:5px solid #2563EB; border-radius:10px; padding:12px 18px; margin-top:14px; margin-bottom:14px;">
-                    <div style="font-size:0.75rem; font-weight:700; color:#1E40AF; text-transform:uppercase; letter-spacing:0.04em;">Articolo Attualmente Visualizzato in Basso</div>
-                    <div style="font-size:1.15rem; font-weight:800; color:#0F172A; margin-top:2px;">
-                        {current_prod['descrizione_articolo']} <span style="font-size:0.95rem; font-weight:600; color:#2563EB;">({current_prod['cod_art']})</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Card Container
-            with st.container(border=True):
-                col_img, col_info = st.columns([1, 2], gap="large")
-                
-                with col_img:
-                    foto_resolved = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, gdrive_id=current_prod.get('gdrive_foto_id'))
-                    if foto_resolved and (foto_resolved.startswith("http") or os.path.exists(foto_resolved)):
-                        st.image(foto_resolved, use_container_width=True)
-                        st.caption(f"Codice SKU: `{current_prod['cod_art']}`")
-                    else:
-                        st.markdown("""
-                        <div style="background:#F1F5F9; border:2px dashed #CBD5E1; border-radius:12px; height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94A3B8; margin-bottom:8px;">
-                            <span style="font-size:2.5rem;">📷</span>
-                            <span style="font-size:0.85rem; font-weight:600; margin-top:6px;">Foto non disponibile</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.caption(f"Codice SKU: `{current_prod['cod_art']}`")
-                
-                with col_info:
-                    st.markdown(f'<div class="product-title-text">{current_prod["descrizione_articolo"]}</div>', unsafe_allow_html=True)
-                    st.markdown(f'<span class="sku-badge">SKU: {current_prod["cod_art"]}</span>', unsafe_allow_html=True)
-                    
-                    # Dynamic Environment Badge Color
-                    env_class = "badge-refrigerato" if "refrigerato" in current_prod.get('ambiente_cons', '').lower() else ("badge-congelato" if "congelato" in current_prod.get('ambiente_cons', '').lower() else "badge-asciutto")
-                    
-                    st.markdown(f"""
-                    <div style="margin-bottom: 8px;">
-                        <span class="badge-pill badge-category">📁 {current_prod.get('gruppo_art', 'N/D')}</span>
-                        <span class="badge-pill {env_class}">❄️ {current_prod.get('ambiente_cons', 'N/D')}</span>
-                        <span class="badge-pill badge-shelflife">⏳ Shelf-Life: {current_prod.get('shelf_life_it', 'N/D')}</span>
-                        <span class="badge-pill badge-packaging">⚖️ {current_prod.get('tipo_peso', 'N/D')}</span>
-                        <span class="badge-pill badge-packaging">📦 {current_prod.get('unita_imballi', 'N/D')}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Key details grid
-                    col_d1, col_d2 = st.columns(2)
-                    with col_d1:
-                        st.markdown(f"• **Unità di Misura:** `{current_prod.get('um', 'Kg')}`")
-                        st.markdown(f"• **Minimo d'Ordine:** `{current_prod.get('minimo_ordine', 'N/D')}`")
-                        st.markdown(f"• **Tempo Consegna:** `{current_prod.get('tempo_cons_gg', 'N/D')} giorni`")
-                    with col_d2:
-                        st.markdown(f"• **Stato Articolo:** `{'Attivo a Listino' if current_prod.get('art_attivo') == 'Y' else 'Disattivo'}`")
-                        if current_prod.get('prezzo_indicativo'):
-                            st.markdown(f"""
-                            <div class="price-tag-box-touch">
-                                <div style="font-size:0.72rem; color:#047857; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Prezzo Soglia Riservato</div>
-                                <div class="price-value-text-touch">€ {current_prod.get('prezzo_indicativo')} <span style="font-size:0.85rem; font-weight:600; color:#065F46;">/ {current_prod.get('um', 'Kg')}</span></div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    if current_prod.get('descrizione_commerciale'):
-                        st.markdown(f"""
-                        <div style="background:#FFFBEB; border-left:4px solid #F59E0B; padding:8px 12px; border-radius:6px; font-size:0.88rem; color:#451A03; margin-top:6px; margin-bottom:8px;">
-                            <b>Descrizione Commerciale:</b><br>{current_prod['descrizione_commerciale']}
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # Action buttons in a 2x2 touch-friendly grid
-                    st.write("")
-                    b_row1_c1, b_row1_c2 = st.columns(2)
-                    with b_row1_c1:
-                        if st.session_state.chat_focused_sku == selected_sku:
-                            if st.button("❌ Rimuovi focus AI", use_container_width=True):
-                                st.session_state.chat_focused_sku = None
-                                st.toast("Focus rimosso! Passato al catalogo generale.")
-                                st.rerun()
-                        else:
-                            if st.button("🎯 Chiedi all'AI", type="primary", use_container_width=True):
-                                st.session_state.chat_focused_sku = selected_sku
-                                st.toast(f"✅ Articolo {selected_sku} agganciato alla Chat AI! Vai alla scheda '💬 Chat AI'.")
-                                st.rerun()
-                                
-                    with b_row1_c2:
-                        scheda_resolved = resolve_file(current_prod.get('scheda_path'), current_prod.get('scheda_filename'), config.SCHEDE_DIR, gdrive_id=current_prod.get('gdrive_scheda_id'))
-                        if scheda_resolved and os.path.exists(scheda_resolved):
-                            with open(scheda_resolved, "rb") as f:
-                                st.download_button(
-                                    label="📥 Scarica Scheda PDF",
-                                    data=f.read(),
-                                    file_name=os.path.basename(scheda_resolved),
-                                    mime="application/pdf",
-                                    use_container_width=True
-                                )
-                        elif current_prod.get('gdrive_scheda_id'):
-                            st.link_button(
-                                "📄 Apri Scheda PDF",
-                                f"https://drive.google.com/file/d/{current_prod['gdrive_scheda_id']}/view",
-                                use_container_width=True
-                            )
-                        else:
-                            st.button("📄 Nessun PDF allegato", disabled=True, use_container_width=True)
-
-                    b_row2_c1, b_row2_c2 = st.columns(2)
-                    with b_row2_c1:
-                        if st.button("📲 Offerta WhatsApp", use_container_width=True, help="Prepara un'offerta WhatsApp per questo articolo con presentazione e consigli"):
-                            st.session_state.flash_offer_sku = selected_sku
-                            try:
-                                raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
-                                st.session_state.flash_offer_price = float(raw_p) if raw_p else 0.0
-                            except (ValueError, TypeError):
-                                st.session_state.flash_offer_price = 0.0
-                            st.session_state.flash_offer_ai_pitch = ""
-                            if "wa_flash_editor" in st.session_state:
-                                del st.session_state["wa_flash_editor"]
-                            if "flash_prod_selector" in st.session_state:
-                                del st.session_state["flash_prod_selector"]
-                            st.toast(f"✅ {selected_sku} trasferito con successo nell'Offerta WhatsApp! Apri la scheda '📲 Offerta WA'.")
-
-                    with b_row2_c2:
-                        if st.button("📄 Aggiungi a Volantino", use_container_width=True, key=f"btn_add_flyer_{selected_sku}", help="Aggiungi questo articolo a uno slot del Volantino promozionale A4"):
-                            empty_idx = -1
-                            for idx_s, slt in enumerate(st.session_state.flyer_slots):
-                                if not slt.get("cod_art"):
-                                    empty_idx = idx_s
-                                    break
-                            if empty_idx == -1:
-                                st.warning("⚠️ Tutti i 6 slot del Volantino sono già occupati! Vai alla scheda '📄 Volantino' per liberare uno slot.")
-                            else:
-                                raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
-                                try:
-                                    p_val = float(raw_p) if raw_p else 0.0
-                                except (ValueError, TypeError):
-                                    p_val = 0.0
-                                raw_desc = current_prod.get('descrizione_commerciale', '') or ''
-                                clean_d = re.sub(r'_x[0-9a-fA-F]{4}_', ' ', raw_desc).strip()
-                                if len(clean_d) > 105:
-                                    clean_d = clean_d[:102].strip() + "..."
-                                foto_res = resolve_file(current_prod.get('foto_path'), current_prod.get('foto_filename'), config.FOTO_DIR, sku=selected_sku, gdrive_id=current_prod.get('gdrive_foto_id'))
-                                
-                                # 1. Update flyer_slots
-                                st.session_state.flyer_slots[empty_idx] = {
-                                    "cod_art": selected_sku,
-                                    "descrizione_articolo": current_prod.get('descrizione_articolo', ''),
-                                    "um": current_prod.get('um', 'Kg') or 'Kg',
-                                    "prezzo": p_val,
-                                    "descrizione_commerciale": clean_d,
-                                    "foto_path": foto_res or ""
-                                }
-                                
-                                # 2. Directly sync widget state in session_state
-                                opt_str = sku_to_opt.get(selected_sku, f"{selected_sku} — {current_prod.get('descrizione_articolo', '')}")
-                                st.session_state[f"flyer_sel_{empty_idx}"] = opt_str
-                                st.session_state[f"flyer_price_{empty_idx}"] = p_val
-                                st.session_state[f"flyer_desc_{empty_idx}"] = clean_d
-                                
-                                st.toast(f"✅ {selected_sku} aggiunto allo Slot {empty_idx + 1} del Volantino! Apri la scheda '📄 Volantino'.")
-                                st.rerun()
-
-                    if st.button("📊 Aggiungi al Food Cost", use_container_width=True, key=f"btn_add_fc_{selected_sku}", help="Aggiunge questo articolo alla ricetta del Food Cost con prezzo di listino"):
-                        raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip()
-                        try:
-                            u_price = float(raw_p) if raw_p else 0.0
-                        except (ValueError, TypeError):
-                            u_price = 0.0
-                        prod_um = current_prod.get("um", "Kg") or "Kg"
-                        if str(prod_um).strip().lower() in ["kg", "chilogrammo", "chilo"]:
-                            def_q, def_u = 100.0, "g"
-                        elif str(prod_um).strip().lower() in ["l", "lt", "litro"]:
-                            def_q, def_u = 100.0, "ml"
-                        else:
-                            def_q, def_u = 1.0, prod_um if prod_um in ["Pz", "etto", "fetta"] else "Pz"
-
-                        st.session_state.recipe_ingredients.append({
-                            "cod_art": selected_sku,
-                            "name": current_prod.get("descrizione_articolo", ""),
-                            "quantity": def_q,
-                            "unit": def_u,
-                            "unit_price": u_price,
-                            "price_um": prod_um
-                        })
-                        st.toast(f"✅ {selected_sku} ({current_prod.get('descrizione_articolo', '')}) aggiunto al Food Cost! Apri la scheda '📊 Food Cost'.")
-                        st.rerun()
-
-                    # --- ADD TO QUOTE QUICK SECTION ---
-                    st.divider()
-                    st.markdown("##### 🛒 Aggiungi questo articolo al Preventivo:")
-                    try:
-                        raw_p = str(current_prod.get('prezzo_indicativo', '0')).replace(',', '.').strip()
-                        default_p = float(raw_p) if raw_p else 0.0
-                    except ValueError:
-                        default_p = 0.0
-                        
-                    q_col_qty, q_col_prc, q_col_btn = st.columns([1, 1.2, 1.8])
-                    with q_col_qty:
-                        add_qty = st.number_input(
-                            f"Q.tà ({current_prod.get('um', 'Kg')})",
-                            min_value=0.1,
-                            value=1.0,
-                            step=1.0,
-                            key=f"qty_sel_{selected_sku}"
-                        )
-                    with q_col_prc:
-                        add_price = st.number_input(
-                            "Prezzo (€)",
-                            min_value=0.0,
-                            value=default_p,
-                            step=0.10,
-                            format="%.2f",
-                            key=f"prc_sel_{selected_sku}"
-                        )
-                    with q_col_btn:
-                        st.write("")
-                        st.write("")
-                        if st.button("➕ Aggiungi al Preventivo", type="primary", use_container_width=True, key=f"btn_add_{selected_sku}"):
-                            # Check if already in items
-                            existing = next((i for i in st.session_state.quote_items if i["cod_art"] == selected_sku), None)
-                            if existing:
-                                existing["quantita"] += add_qty
-                                existing["prezzo_unitario"] = add_price
-                            else:
-                                st.session_state.quote_items.append({
-                                    "cod_art": selected_sku,
-                                    "descrizione_articolo": current_prod.get("descrizione_articolo", ""),
-                                    "unita_imballi": current_prod.get("unita_imballi", ""),
-                                    "um": current_prod.get("um", "Kg"),
-                                    "quantita": add_qty,
-                                    "prezzo_unitario": add_price
-                                })
-                            st.toast(f"✅ Aggiunto {selected_sku} al Preventivo! (Totale articoli: {len(st.session_state.quote_items)})")
-                            st.rerun()
-
-            # Scheda Tecnica Full-Width Section below product card
-            scheda_text = current_prod.get('scheda_text', '').strip()
-            if scheda_text:
-                st.write("")
-                with st.expander("Consulta il Testo Ufficiale della Scheda Tecnica (HACCP, Ingredienti, Allergeni)", expanded=False):
-                    st.text_area("Testo Integrale Scheda Tecnica", value=scheda_text, height=220, disabled=True, label_visibility="collapsed")
-            elif current_prod.get('scheda_path'):
-                st.info("ℹ️ La scheda tecnica PDF è presente per il download ma non contiene testo scansionabile.")
 
 # =========================================================================
 # TAB 2: STUDIO CONSULENZA & CHAT AI
