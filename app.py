@@ -408,19 +408,17 @@ if "quote_customer" not in st.session_state:
 
 # Food Cost Session State
 if "recipe_name" not in st.session_state:
-    st.session_state.recipe_name = "Pizza Gourmet Orazio alla Brace & Burrata"
+    st.session_state.recipe_name = "Nuova Ricetta"
 if "recipe_category" not in st.session_state:
-    st.session_state.recipe_category = "Pizzeria Gourmet"
+    st.session_state.recipe_category = "Ristorazione"
 if "recipe_portions" not in st.session_state:
     st.session_state.recipe_portions = 1
 if "recipe_target_pct" not in st.session_state:
     st.session_state.recipe_target_pct = 28.0
 if "recipe_actual_price" not in st.session_state:
-    st.session_state.recipe_actual_price = 13.50
+    st.session_state.recipe_actual_price = 0.0
 if "recipe_ingredients" not in st.session_state:
-    st.session_state.recipe_ingredients = [
-        dict(x) for x in food_cost_calculator.RECIPE_TEMPLATES["🌟 Pizza Gourmet Orazio alla Brace & Burrata"]["ingredients"]
-    ]
+    st.session_state.recipe_ingredients = []
 if "food_cost_ai_analysis" not in st.session_state:
     st.session_state.food_cost_ai_analysis = None
 
