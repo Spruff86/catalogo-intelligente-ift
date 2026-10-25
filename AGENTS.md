@@ -77,6 +77,8 @@ Fornire alla forza vendita, agli agenti sul territorio e ai clienti di **Italian
    - Non applicare mai regole CSS generiche `font-family: ... !important` su tag globali `span` o `div`, poiché sovrascrivono i font glyph di Material Symbols compromettendo la resa delle icone native di Streamlit.
 3. **Portabilità Locale e Cloud**:
    - Utilizzare sempre le funzioni di risoluzione percorsi in `config.py` e `app.py` (`resolve_file`) per garantire il funzionamento sia sui percorsi locali di Google Drive che in ambienti containerizzati cloud.
+4. **Esclusione Tassativa Voci Amministrative e di Servizio**:
+   - Non considerare né importare mai voci contabili, amministrative o di costo interno presenti nei file export SAP, quali cespiti e beni strumentali (es. `ZC...`), supplementi logistici o di trasporto (`S3...`, `ST...`), spese o costi interni (`T0...`, `TA...`), o voci di servizio (`ZA...`, `ZN...`, `SC...`, `SS...`). Il catalogo deve contenere esclusivamente merci e generi alimentari vendibili alla clientela Ho.Re.Ca.
 
 ---
 

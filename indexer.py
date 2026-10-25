@@ -66,6 +66,45 @@ def normalize_category(cat: str) -> str:
     c = str(cat).strip()
     return (c[0].upper() + c[1:]) if c else "Altro"
 
+ADMIN_SKU_PREFIXES = (
+    "ZC",  # Cespiti e beni strumentali aziendali (hardware, arredi, macchinari)
+    "ZA",  # Voci di servizio ordine / consegna agente
+    "ZN",  # Voci tecniche / nessuna alternativa
+    "S3",  # Supplementi logistici, costi trasporto, magazzino
+    "SC",  # Contributo CONAI
+    "SS",  # Sconti commerciali di riga
+    "ST",  # Spese trasporto vettori
+    "T0",  # Spese generali interne, cancelleria, utenze, carburanti
+    "TA",  # Costi amministrativi e rating
+)
+
+def is_administrative_or_service_item(sku: str, description: str = "") -> bool:
+    """
+    Identifies and filters out non-commercial items:
+    - Fixed assets / cespiti (ZC...)
+    - Logistics and transport supplements (S3..., ST...)
+    - Internal overhead, utilities, consumables (T0..., TA...)
+    - Internal service and placeholder codes (ZA..., ZN..., SC..., SS...)
+    """
+    sku_clean = str(sku or "").strip().upper()
+    if not sku_clean:
+        return True
+    
+    if sku_clean.startswith(ADMIN_SKU_PREFIXES):
+        return True
+        
+    if sku_clean.startswith(("Z", "T")):
+        return True
+        
+    if sku_clean.startswith("S"):
+        desc_lower = str(description or "").lower()
+        if any(term in desc_lower for term in [
+            "trasport", "consegna", "supplement", "logist", "stoccaggio", "contrassegno", "conai", "sconto"
+        ]):
+            return True
+            
+    return False
+
 def load_historical_prices() -> dict:
     """Extracts known non-zero prices from previously indexed Excel files in the base directory."""
     import glob
@@ -91,7 +130,7 @@ def load_historical_prices() -> dict:
                 continue
             for r in rows[h_idx + 1:]:
                 sku = str(r[sku_idx] if sku_idx < len(r) else '').strip().upper()
-                if not sku:
+                if not sku or is_administrative_or_service_item(sku):
                     continue
                 s_val = r[s_idx] if s_idx != -1 and s_idx < len(r) else 0
                 c_val = r[c_idx] if c_idx != -1 and c_idx < len(r) else 0
@@ -191,8 +230,11 @@ def run_indexing():
             continue
             
         cod_art_clean = cod_art.strip().upper()
-        
         descrizione_articolo = get_val(row, "Descrizione_articolo") or get_val(row, "Item_description")
+        
+        # Filtro voci amministrative, cespiti (ZC), supplementi logistici (S3) e spese interne (T0)
+        if is_administrative_or_service_item(cod_art_clean, descrizione_articolo):
+            continue
         gruppo_art_raw = get_val(row, "Gruppo_art") or get_val(row, "Item_Group")
         gruppo_art = normalize_category(gruppo_art_raw)
         um = get_val(row, "Um") or get_val(row, "M.U.")

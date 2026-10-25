@@ -66,10 +66,25 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Administrative, internal overhead, fixed assets, and transport supplement exclusions
+ADMIN_SKU_PREFIXES = (
+    "ZC",  # Cespiti e beni strumentali aziendali (hardware, arredi, macchinari)
+    "ZA",  # Voci di servizio ordine / consegna agente
+    "ZN",  # Voci tecniche / nessuna alternativa
+    "S3",  # Supplementi logistici, costi trasporto, magazzino
+    "SC",  # Contributo CONAI
+    "SS",  # Sconti commerciali di riga
+    "ST",  # Spese trasporto vettori
+    "T0",  # Spese generali interne, cancelleria, utenze, carburanti
+    "TA",  # Costi amministrativi e rating
+)
+
+SQL_EXCLUDE_ADMIN = "(cod_art NOT LIKE 'ZC%' AND cod_art NOT LIKE 'ZA%' AND cod_art NOT LIKE 'ZN%' AND cod_art NOT LIKE 'S3%' AND cod_art NOT LIKE 'SC%' AND cod_art NOT LIKE 'SS%' AND cod_art NOT LIKE 'ST%' AND cod_art NOT LIKE 'T0%' AND cod_art NOT LIKE 'TA%' AND cod_art NOT LIKE 'Z%' AND cod_art NOT LIKE 'T%')"
+
 def get_categories() -> List[str]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT gruppo_art FROM products WHERE gruppo_art IS NOT NULL AND gruppo_art != '' ORDER BY gruppo_art COLLATE NOCASE")
+    cursor.execute(f"SELECT DISTINCT gruppo_art FROM products WHERE gruppo_art IS NOT NULL AND gruppo_art != '' AND {SQL_EXCLUDE_ADMIN} ORDER BY gruppo_art COLLATE NOCASE")
     cats = [row[0] for row in cursor.fetchall()]
     conn.close()
     return cats
@@ -77,7 +92,7 @@ def get_categories() -> List[str]:
 def get_storage_envs() -> List[str]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT ambiente_cons FROM products WHERE ambiente_cons IS NOT NULL AND ambiente_cons != '' ORDER BY ambiente_cons")
+    cursor.execute(f"SELECT DISTINCT ambiente_cons FROM products WHERE ambiente_cons IS NOT NULL AND ambiente_cons != '' AND {SQL_EXCLUDE_ADMIN} ORDER BY ambiente_cons")
     envs = [row[0] for row in cursor.fetchall()]
     conn.close()
     return envs
@@ -175,7 +190,8 @@ def search_products(
     
     dietary = kwargs.get("dietary")
     
-    base_conditions = []
+    # Exclude administrative and non-commercial service items (ZC, S3, T0, etc.)
+    base_conditions = [SQL_EXCLUDE_ADMIN]
     base_params = []
     
     if category and category != "Tutte":
@@ -269,7 +285,7 @@ def search_products(
 def get_product_by_code(cod_art: str) -> Optional[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM products WHERE UPPER(cod_art) = UPPER(?)", (cod_art.strip(),))
+    cursor.execute(f"SELECT * FROM products WHERE UPPER(cod_art) = UPPER(?) AND {SQL_EXCLUDE_ADMIN}", (cod_art.strip(),))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -277,24 +293,26 @@ def get_product_by_code(cod_art: str) -> Optional[Dict[str, Any]]:
 def get_catalog_stats() -> Dict[str, Any]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM products")
+    cursor.execute(f"SELECT COUNT(*) FROM products WHERE {SQL_EXCLUDE_ADMIN}")
     total_products = cursor.fetchone()[0]
     
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT COUNT(*) FROM products 
-        WHERE (foto_path IS NOT NULL AND foto_path != '') 
-           OR (gdrive_foto_id IS NOT NULL AND gdrive_foto_id != '')
+        WHERE {SQL_EXCLUDE_ADMIN}
+          AND ((foto_path IS NOT NULL AND foto_path != '') 
+            OR (gdrive_foto_id IS NOT NULL AND gdrive_foto_id != ''))
     """)
     with_foto = cursor.fetchone()[0]
     
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT COUNT(*) FROM products 
-        WHERE (scheda_path IS NOT NULL AND scheda_path != '') 
-           OR (gdrive_scheda_id IS NOT NULL AND gdrive_scheda_id != '')
+        WHERE {SQL_EXCLUDE_ADMIN}
+          AND ((scheda_path IS NOT NULL AND scheda_path != '') 
+            OR (gdrive_scheda_id IS NOT NULL AND gdrive_scheda_id != ''))
     """)
     with_scheda = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM products WHERE scheda_text IS NOT NULL AND length(scheda_text) > 20")
+    cursor.execute(f"SELECT COUNT(*) FROM products WHERE {SQL_EXCLUDE_ADMIN} AND scheda_text IS NOT NULL AND length(scheda_text) > 20")
     with_text = cursor.fetchone()[0]
     
     conn.close()
@@ -309,9 +327,10 @@ def get_all_products_basic() -> List[Dict[str, Any]]:
     """Returns a lightweight list of all products for dropdowns and recipe selectors."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT cod_art, descrizione_articolo, um, prezzo_indicativo, prezzo_contratto 
         FROM products 
+        WHERE {SQL_EXCLUDE_ADMIN}
         ORDER BY cod_art ASC
     """)
     rows = cursor.fetchall()
