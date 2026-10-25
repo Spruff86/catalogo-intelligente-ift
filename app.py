@@ -550,6 +550,26 @@ if quote_items_count > 0:
     </div>
     """, unsafe_allow_html=True)
 
+# Guida Rapida & Manuale Operativo PDF per la Forza Vendita
+manual_pdf_path = os.path.join(os.path.dirname(__file__), "Manuale_Catalogo_Intelligente_IFT.pdf")
+if os.path.exists(manual_pdf_path):
+    with st.expander("📘 Manuale Operativo Agenti & Guida Funzionalità (PDF)", expanded=False):
+        col_m1, col_m2 = st.columns([2.8, 1.2])
+        with col_m1:
+            st.markdown("""
+            **Guida Completa all'Uso del Catalogo Intelligente IFT**:
+            Include spiegazioni passo-passo per la ricerca rapida, l'uso dell'Assistente AI, la creazione di preventivi con firma e l'ingegneria del Food Cost con il cliente.
+            """)
+        with col_m2:
+            with open(manual_pdf_path, "rb") as f_man:
+                st.download_button(
+                    label="📥 Scarica Manuale PDF",
+                    data=f_man.read(),
+                    file_name="Manuale_Catalogo_Intelligente_IFT.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
 # Global product list for dropdown selectors & flyer
 all_prods = database.get_all_products_basic()
 prod_options = ["-- Nessun Prodotto Selezionato --"] + [
