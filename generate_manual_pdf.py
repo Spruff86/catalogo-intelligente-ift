@@ -458,27 +458,69 @@ def create_manual(output_path="Manuale_Catalogo_Intelligente_IFT.pdf"):
     t_scen.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#EFF6FF")),
         ('GRID', (0,0), (-1,-1), 0.5, c_border),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2.5),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
     story.append(t_scen)
     story.append(Spacer(1, 4))
 
+    # Box Installazione Icona Schermata Home (Android & Apple)
+    story.append(Paragraph("7. COME SALVARE L'ICONA SULLA SCHERMATA HOME (COME VERA APP)", s_h1))
+    
+    install_data = [
+        [
+            Paragraph("<b>🤖 DISPOSITIVI ANDROID (Google Chrome)</b>", s_body_bold),
+            Paragraph("<b>🍏 DISPOSITIVI APPLE (Safari su iPhone / iPad)</b>", s_body_bold)
+        ],
+        [
+            Paragraph(
+                "1. Apri il link del catalogo su <b>Google Chrome</b>.<br/>"
+                "2. Tocca l'icona con i <b>3 puntini</b> in alto a destra <b>(⋮)</b>.<br/>"
+                "3. Seleziona <b>'Aggiungi a schermata Home'</b> (o <i>'Installa app'</i>).<br/>"
+                "4. Conferma con <b>'Aggiungi'</b>.<br/>"
+                "<i>L'icona IFT comparirà sulla tua Home aprendosi a schermo intero senza barre del browser!</i>",
+                s_box_text
+            ),
+            Paragraph(
+                "1. Apri il link del catalogo su <b>Safari</b>.<br/>"
+                "2. Tocca il tasto <b>Condividi</b> in basso al centro <b>[ ↑ ]</b> (in alto su iPad).<br/>"
+                "3. Scorri l'elenco verso il basso e tocca <b>'Aggiungi alla schermata Home'</b> <b>[ + ]</b>.<br/>"
+                "4. Tocca <b>'Aggiungi'</b> in alto a destra.<br/>"
+                "<i>Troverai l'icona tra le tue app preferite, pronta all'avvio istantaneo con 1 tocco!</i>",
+                s_box_text
+            )
+        ]
+    ]
+    t_inst = Table(install_data, colWidths=[9.2*cm, 9.2*cm])
+    t_inst.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,0), colors.HexColor("#F0FDF4")),
+        ('BACKGROUND', (1,0), (1,0), colors.HexColor("#F8FAFC")),
+        ('BACKGROUND', (0,1), (0,1), colors.HexColor("#F0FDF4")),
+        ('BACKGROUND', (1,1), (1,1), colors.HexColor("#F8FAFC")),
+        ('GRID', (0,0), (-1,-1), 0.5, c_border),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(t_inst)
+    story.append(Spacer(1, 4))
+
     support_box = (
         "<b>ACCESSO & SUPPORTO TECNICO IFT:</b><br/>"
-        "L'applicazione è accessibile via web su qualsiasi dispositivo connesso a Internet. "
-        "Per qualsiasi richiesta di aggiornamento listini, chiarimenti o supporto tecnico, contatta la direzione commerciale di "
-        "<b>Italian Food Trading S.r.l.</b> (Verona)."
+        "L'applicazione è sincronizzata costantemente con i server aziendali di <b>Italian Food Trading S.r.l.</b> "
+        "Per chiarimenti, aggiornamenti listini o assistenza commerciale, contatta la direzione IFT (Verona)."
     )
     story.append(Table([[Paragraph(support_box, s_box_text)]], colWidths=[18.5*cm], style=[
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8FAFC")),
         ('BOX', (0,0), (-1,-1), 1, c_border),
         ('LINELEFT', (0,0), (-1,-1), 4, c_accent),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
     ]))
 
     doc.build(story, canvasmaker=NumberedCanvas)
