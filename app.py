@@ -421,8 +421,6 @@ if "recipe_actual_price" not in st.session_state:
     st.session_state.recipe_actual_price = 0.0
 if "recipe_ingredients" not in st.session_state:
     st.session_state.recipe_ingredients = []
-if "food_cost_ai_analysis" not in st.session_state:
-    st.session_state.food_cost_ai_analysis = None
 
 # WhatsApp Flash Offer Session State
 if "flash_offer_sku" not in st.session_state:
@@ -1527,12 +1525,12 @@ with tab_foodcost:
             st.rerun()
 
         # -------------------------------------------------------------
-        # 3. STRATEGIC ACTIONS (QUOTE INTEGRATION & AI OPTIMIZER)
+        # 3. STRATEGIC ACTIONS (QUOTE INTEGRATION)
         # -------------------------------------------------------------
         st.write("")
         st.markdown("##### 🚀 Azioni Strategiche:")
         
-        act_col1, act_col2, act_col3 = st.columns([1.8, 1.8, 1.0])
+        act_col1, act_col2 = st.columns([2.5, 1.0])
         
         with act_col1:
             if st.button("🛒 Travasa Ingredienti nel Preventivo", type="primary", use_container_width=True):
@@ -1575,172 +1573,10 @@ with tab_foodcost:
                     st.warning("Nessun articolo con codice SKU valido da travasare.")
                     
         with act_col2:
-            if st.button("🤖 Ottimizza Food Cost con Assistente AI", type="primary", use_container_width=True):
-                with st.spinner("Analisi gastronomica, bilanciamento grammature e ricerca alternative IFT in corso..."):
-                    # Detailed breakdown of current ingredients with % impact
-                    items_breakdown_text = "\n".join([
-                        f"- SKU: `{i.get('cod_art', 'N/D')}` | {i['name']} | Dosaggio: {i['quantity']} {i['unit']} | Prezzo Listino: € {i['unit_price']:.2f}/{i['price_um']} | Costo Incidenza: € {i['cost']:.2f} ({i['cost_pct']:.1f}% del piatto)"
-                        for i in summary['items_breakdown']
-                    ])
-                    
-                    # Retrieve relevant candidate substitutes from IFT catalog
-                    catalog_suggestions = []
-                    for ing in st.session_state.recipe_ingredients:
-                        words = [w for w in ing['name'].replace('-', ' ').replace('/', ' ').replace('"', ' ').split() if len(w) > 3]
-                        for w in words[:2]:
-                            matches = database.search_products(w, limit=3)
-                            for m in matches:
-                                if m['cod_art'] not in [x['cod_art'] for x in catalog_suggestions]:
-                                    catalog_suggestions.append(m)
-                                    
-                    catalog_context = "\n".join([
-                        f"- SKU `{m['cod_art']}` — {m['descrizione_articolo']} (€ {m.get('prezzo_indicativo', '0')} / {m.get('um', 'Kg')}) | Imballo: {m.get('unita_imballi', 'N/D')}"
-                        for m in catalog_suggestions[:15]
-                    ])
-                    
-                    prompt_food_cost = (
-                        f"Sei il Master Chef e Consulente di Menu Engineering di Italian Food Trading S.r.l. (Verona).\n"
-                        f"Esegui un'AUDIT TECNICA ed OTTIMIZZAZIONE DEL FOOD COST E GRAMMATURE per la seguente ricetta:\n\n"
-                        f"🍽️ PIATTO: '{st.session_state.recipe_name}' (Categoria: {st.session_state.recipe_category})\n"
-                        f"- Resa ricetta: {st.session_state.recipe_portions} porzione/i\n"
-                        f"- Costo Ingredienti Totale per porzione: € {summary['food_cost_per_portion']:.2f}\n"
-                        f"- Prezzo di Vendita a Menu: € {summary['actual_selling_price_gross']:.2f} (IVA 10% inclusa) -> Netto: € {summary['actual_selling_price_net']:.2f}\n"
-                        f"- Food Cost % Attuale: {summary['actual_food_cost_pct']:.1f}% (Margine Lordo per porzione: € {summary['gross_margin_per_portion']:.2f})\n\n"
-                        f"📋 DISTINTA BASE ATTUALE CON INCIDENZA % SUI COSTI:\n"
-                        f"{items_breakdown_text}\n\n"
-                        f"📦 REFERENZE REALI DISPONIBILI NEL CATALOGO IFT PER SOSTITUZIONI/OTTIMIZZAZIONI:\n"
-                        f"{catalog_context}\n\n"
-                        f"STRUTTURA LA TUA CONSULENZA IN 4 SEZIONI RIGOROSE IN FORMATO MARKDOWN:\n"
-                        f"1. 🔍 **Diagnosi Criticità & Incidenza Costi**: Individua con precisione gli ingredienti che incidono maggiormente sul costo complessivo e le inefficienze di porzionamento.\n"
-                        f"2. ⚖️ **Ribilanciamento Grammature & Tagli di Resa**: Rivedi e calibra nel dettaglio le grammature consigliate per porzione (es. calibrazione grammi per pizza/piatto) per abbattere lo spreco mantenendo inalterata la palatabilità, la ricchezza visiva e la soddisfazione del cliente.\n"
-                        f"3. 🔄 **Proposte di Sostituzione con SKU Reali IFT a Maggiore Resa**: Proponi alternative concrete dal listino IFT (indicando obbligatoriamente il codice SKU esatto, la descrizione ufficiale e il Prezzo Soglia), spiegando il risparmio economico o la migliore tenuta in cottura.\n"
-                        f"4. 📈 **Quadro Finanziario Comparato (Prima vs Dopo)**:\n"
-                        f"   - Food Cost per porzione: da € {summary['food_cost_per_portion']:.2f} a € [Nuovo Costo Stimato]\n"
-                        f"   - Incidenza Food Cost %: da {summary['actual_food_cost_pct']:.1f}% a [Nuovo %]\n"
-                        f"   - Aumento Margine di Contribuzione per piatto (€) e stima di maggior profitto annuo per il locale (su 30 coperti/giorno x 300 giorni).\n\n"
-                        f"REGOLA TASSATIVA AZIENDALE: Cita ESCLUSIVAMENTE codici SKU reali e prodotti presenti nel catalogo Italian Food Trading S.r.l. Non inventare mai codici SKU o ingredienti non a magazzino."
-                    )
-                    
-                    ai_res = ai_assistant.generate_ai_response(
-                        messages=[{"role": "user", "content": prompt_food_cost}],
-                        current_product=None,
-                        api_key=user_api_key if user_api_key else env_api_key,
-                        model_name=model_choice,
-                        enable_web_search=enable_web_search
-                    )
-                    
-                    st.session_state.food_cost_ai_analysis = ai_res["text"]
-                    # Also record in chat history
-                    st.session_state.messages.append({"role": "user", "content": f"Ottimizzazione Food Cost ricetta '{st.session_state.recipe_name}'"})
-                    st.session_state.messages.append({"role": "assistant", "content": ai_res["text"]})
-                    st.rerun()
-                    
-        with act_col3:
             if st.button("🗑️ Svuota Ricetta", use_container_width=True):
                 st.session_state.recipe_ingredients = []
-                st.session_state.food_cost_ai_analysis = None
                 st.toast("Ricetta svuotata!")
                 st.rerun()
-
-    # -------------------------------------------------------------
-    # 8. AI FOOD COST OPTIMIZATION REPORT DISPLAY & ACTIONS
-    # -------------------------------------------------------------
-    if st.session_state.get("food_cost_ai_analysis"):
-        st.write("")
-        st.markdown("---")
-        st.markdown("""
-        <div style="background:#F8FAFC; border:1px solid #CBD5E1; border-left:5px solid #16A34A; padding:18px 20px; border-radius:12px; margin-top:12px; margin-bottom:12px;">
-            <div style="font-weight:800; font-size:1.15rem; color:#0F172A; display:flex; align-items:center; gap:8px;">
-                <span>🤖 Perizia di Ottimizzazione Food Cost & Ingegneria del Menu:</span>
-            </div>
-            <div style="font-size:0.85rem; color:#475569; margin-top:4px;">
-                Analisi generata in tempo reale con bilanciamento grammature, identificazione sprechi e alternative a listino IFT.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown(st.session_state.food_cost_ai_analysis)
-        
-        # Get set of SKUs currently present in the recipe
-        current_recipe_skus = {
-            str(i.get("cod_art", "")).strip().upper() 
-            for i in st.session_state.recipe_ingredients 
-            if i.get("cod_art")
-        }
-        
-        # Detect all real catalog products cited in the AI report that are NEW / alternative (not currently in recipe)
-        found_skus = re.findall(r'\b(A[0-9]{5,7}[A-Za-z0-9]*)\b', st.session_state.food_cost_ai_analysis)
-        unique_skus = []
-        for s in found_skus:
-            s_upper = s.strip().upper()
-            if (
-                s_upper not in unique_skus 
-                and s_upper not in current_recipe_skus 
-                and database.get_product_by_code(s_upper)
-            ):
-                unique_skus.append(s_upper)
-                
-        if unique_skus:
-            st.write("")
-            st.markdown("##### ⚡ Azioni Rapide sui Prodotti Alternativi Proposti dall'AI:")
-            st.caption("Usa i pulsanti sottostanti per inserire un nuovo ingrediente suggerito o sostituirlo con 1 click a una referenza già presente nella distinta base:")
-            
-            curr_ing_options = {
-                f"{i['name']} ({i.get('cod_art', 'N/D')})": idx
-                for idx, i in enumerate(st.session_state.recipe_ingredients)
-            }
-            
-            for s_idx, alt_sku in enumerate(unique_skus):
-                alt_prod = database.get_product_by_code(alt_sku)
-                if not alt_prod:
-                    continue
-                try:
-                    alt_price = float(str(alt_prod.get('prezzo_indicativo', '0')).replace('€', '').replace(',', '.').strip() or 0.0)
-                except (ValueError, TypeError):
-                    alt_price = 0.0
-                alt_um = alt_prod.get('um', 'Kg')
-                
-                with st.container(border=True):
-                    c_info, c_act_add, c_act_rep = st.columns([3.2, 1.3, 2.5])
-                    
-                    with c_info:
-                        st.markdown(f"<b><code>{alt_prod['cod_art']}</code> — {alt_prod['descrizione_articolo']}</b>", unsafe_allow_html=True)
-                        st.markdown(f"<span style='color:#15803D; font-weight:700; font-size:0.9rem;'>Prezzo Soglia: € {alt_price:.2f} / {alt_um}</span> &nbsp;|&nbsp; <span style='color:#64748B; font-size:0.82rem;'>Imballo: {alt_prod.get('unita_imballi', 'N/D')}</span>", unsafe_allow_html=True)
-                        
-                    with c_act_add:
-                        st.write("")
-                        if st.button("➕ Inserisci", key=f"btn_ai_add_{alt_sku}_{s_idx}", use_container_width=True, help="Aggiunge questo articolo alla ricetta"):
-                            st.session_state.recipe_ingredients.append({
-                                "cod_art": alt_prod["cod_art"],
-                                "name": alt_prod["descrizione_articolo"],
-                                "quantity": 100.0 if alt_um.lower() in ["kg", "g"] else 1.0,
-                                "unit": "g" if alt_um.lower() in ["kg", "g"] else alt_um,
-                                "unit_price": alt_price,
-                                "price_um": alt_um
-                            })
-                            st.toast(f"✅ Inserito {alt_prod['cod_art']} nella ricetta!")
-                            st.rerun()
-                            
-                    with c_act_rep:
-                        if curr_ing_options:
-                            rep_cols_sel, rep_cols_btn = st.columns([1.8, 1.2])
-                            with rep_cols_sel:
-                                chosen_ing_label = st.selectbox(
-                                    "Sostituisci a:",
-                                    options=list(curr_ing_options.keys()),
-                                    key=f"sel_ai_rep_{alt_sku}_{s_idx}",
-                                    label_visibility="collapsed"
-                                )
-                            with rep_cols_btn:
-                                if st.button("🔄 Sostituisci", key=f"btn_ai_rep_{alt_sku}_{s_idx}", type="primary", use_container_width=True, help="Sostituisce l'ingrediente selezionato"):
-                                    target_idx = curr_ing_options[chosen_ing_label]
-                                    target_item = st.session_state.recipe_ingredients[target_idx]
-                                    old_name = target_item['name']
-                                    target_item["cod_art"] = alt_prod["cod_art"]
-                                    target_item["name"] = alt_prod["descrizione_articolo"]
-                                    target_item["unit_price"] = alt_price
-                                    target_item["price_um"] = alt_um
-                                    st.toast(f"✅ Sostituito '{old_name}' con '{alt_prod['cod_art']} - {alt_prod['descrizione_articolo']}'!")
-                                    st.rerun()
 
 # =========================================================================
 # TAB 5: 📲 OFFERTA WHATSAPP FLASH
